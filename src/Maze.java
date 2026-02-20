@@ -96,7 +96,7 @@ public class Maze {
                 grid[r + dr][c + dc] = '#';
             }
 
-            // 3. VALIDATE
+           
             boolean isValid = true;
             if (!checkConnected()) isValid = false;
             else if (!checkArea(2, 2, 3)) isValid = false;
