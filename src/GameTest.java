@@ -1,3 +1,9 @@
 public class GameTest {
-    // Oyun test sınıfı, oyun mekaniklerini ve diğer sınıfları test etmek için kullanılabilir
+     public static void main(String[] args) throws Exception {
+        Maze myMaze = new Maze();
+
+        Game game = new Game(myMaze);
+
+        game.run();
+    }
 }
