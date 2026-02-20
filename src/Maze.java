@@ -207,7 +207,7 @@ public class Maze {
             for (int j = 0; j < COLS; j++) {
                 System.out.print(grid[i][j]);
             }
-            System.out.println(); // New line at end of row
+            System.out.println(); 
         }
     }
 
