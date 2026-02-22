@@ -24,9 +24,9 @@ public class Twins {
         coard = new Coard();
         robots = new ArrayList<Robot>();
 
-        int[] posA = randomEmpty();
-        int[] posB = randomEmpty();
-        player = new Player(posA[0], posA[1], posB[0], posB[1]);
+        //Both players start at the same position
+        int[] initialPos = randomEmpty();
+        player = new Player(initialPos[0], initialPos[1], initialPos[0], initialPos[1]);
 
         // 3 C-Robot ve 3 X-Robot ekle
         for (int i = 0; i < 3; i++) {
