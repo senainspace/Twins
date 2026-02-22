@@ -43,16 +43,28 @@ public class Twins {
 
     private void setupInput() {
         cn.getTextWindow().addTextMouseListener(new TextMouseListener() {
-            public void mouseClicked(TextMouseEvent e) {}
-            public void mousePressed(TextMouseEvent e) {}
-            public void mouseReleased(TextMouseEvent e) {}
+            public void mouseClicked(TextMouseEvent e) {
+            }
+
+            public void mousePressed(TextMouseEvent e) {
+            }
+
+            public void mouseReleased(TextMouseEvent e) {
+            }
         });
         cn.getTextWindow().addKeyListener(new KeyListener() {
-            public void keyTyped(KeyEvent e) {}
-            public void keyPressed(KeyEvent e) {
-                if (keypr == 0) { keypr = 1; rkey = e.getKeyCode(); }
+            public void keyTyped(KeyEvent e) {
             }
-            public void keyReleased(KeyEvent e) {}
+
+            public void keyPressed(KeyEvent e) {
+                if (keypr == 0) {
+                    keypr = 1;
+                    rkey = e.getKeyCode();
+                }
+            }
+
+            public void keyReleased(KeyEvent e) {
+            }
         });
     }
 
@@ -75,10 +87,10 @@ public class Twins {
             if (keypr == 1) {
                 int dx = 0, dy = 0;
 
-                if      (rkey == KeyEvent.VK_LEFT)  dx = -1;
-                else if (rkey == KeyEvent.VK_RIGHT)  dx =  1;
-                else if (rkey == KeyEvent.VK_UP)     dy = -1;
-                else if (rkey == KeyEvent.VK_DOWN)   dy =  1;
+                if (rkey == KeyEvent.VK_LEFT) dx = -1;
+                else if (rkey == KeyEvent.VK_RIGHT) dx = 1;
+                else if (rkey == KeyEvent.VK_UP) dy = -1;
+                else if (rkey == KeyEvent.VK_DOWN) dy = 1;
 
                 if (dx != 0 || dy != 0) {
                     clearPlayer();
@@ -87,6 +99,8 @@ public class Twins {
                 } else if (rkey == KeyEvent.VK_M) {
                     player.mode *= -1;
                     drawPlayer();
+                } else if (rkey == KeyEvent.VK_L) {
+                    fireLaser();
                 }
 
                 keypr = 0;
@@ -130,6 +144,62 @@ public class Twins {
             int x = 1 + rand.nextInt(Coard.COLS - 2);
             int y = 1 + rand.nextInt(Coard.ROWS - 2);
             if (!coard.isWall(x, y)) return new int[]{x, y};
+        }
+    }
+
+    private void fireLaser() throws Exception {
+        Laser laser = new Laser(player.ax, player.ay, player.bx, player.by);
+        // is a and b same row
+        if (laser.y1 == laser.y2) {
+            //lasers start & end coard
+            int start = Math.min(laser.x1, laser.x2);
+            int end = Math.max(laser.x1, laser.x2);
+
+            for (int x = start + 1; x < end; x++) {
+                if (coard.isWall(x, laser.y1))
+                    break;
+                cn.getTextWindow().output(x, laser.y1, '+');
+                for (Robot robot : robots) {
+                    if (robot.x == x && robot.y == laser.y1) {
+                        robot.hp -= 100;
+                    }
+                }
+
+
+            }
+            Thread.sleep(150);
+
+            //bring back
+            for (int x = start + 1; x < end; x++) {
+                if (coard.isWall(x, laser.y1))
+                    break;
+                cn.getTextWindow().output(x, laser.y1, coard.grid[laser.y1][x]);
+            }
+        }
+        // is a and b same column
+        else if (laser.x1 == laser.x2) {
+            int start = Math.min(laser.y1, laser.y2);
+            int end = Math.max(laser.y1, laser.y2);
+            for (int y = start + 1; y < end; y++) {
+                if (coard.isWall(laser.x1, y))
+                    break;
+                cn.getTextWindow().output(laser.x1, y, '+');
+                for (Robot robot : robots) {
+                    if (robot.x == laser.x1 && robot.y == y) {
+                        robot.hp -= 100;
+                    }
+                }
+            }
+            Thread.sleep(150);
+
+            // bring back
+            for (int y = start + 1; y < end; y++) {
+                if (coard.isWall(laser.x1, y))
+                    break;
+                cn.getTextWindow().output(laser.x1, y, coard.grid[y][laser.x1]);
+
+            }
+
         }
     }
 }
