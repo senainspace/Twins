@@ -139,4 +139,12 @@ public class Coard {
         if (r >= 0 && r < ROWS && c >= 0 && c < COLS) return grid[r][c];
         return '#';
     }
+
+    public char[][] getGrid() {
+        char[][] copy = new char[ROWS][COLS];
+        for (int r = 0; r < ROWS; r++) {
+            System.arraycopy(grid[r], 0, copy[r], 0, COLS);
+        }
+        return copy;
+    }
 }
