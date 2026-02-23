@@ -14,12 +14,10 @@ public class Game {
     public int keypr;
     public int rkey;
 
-
-
-    Game maze; // Add reference to the maze
+    Coard maze; // Add reference to the maze
 
     // Constructor only sets up the game data
-    Game(Game m) throws Exception {
+    Game(Coard m) throws Exception {
         this.maze = m; // Store the maze
 
         tmlis=new TextMouseListener() {
@@ -52,6 +50,13 @@ public class Game {
     public void run() throws Exception {
         int px=5,py=5;
 
+        // Render the maze ONCE before the loop
+        char[][] grid = maze.getGrid();
+        for(int r=0; r<23; r++){
+            for(int c=0; c<53; c++){
+                cn.getTextWindow().output(c, r, grid[r][c]);
+            }
+        }
 
         cn.getTextWindow().output(px,py,'A');
 
@@ -72,6 +77,12 @@ public class Game {
                 if (rkey == KeyEvent.VK_RIGHT) targetX++;
                 if (rkey == KeyEvent.VK_UP) targetY--;
                 if (rkey == KeyEvent.VK_DOWN) targetY++;
+
+                // COLLISION CHECK: Only move if it's NOT a wall
+                if(maze.getCoordinate(targetY, targetX) != '#') {
+                    px = targetX;
+                    py = targetY;
+                }
 
                 cn.getTextWindow().output(px, py, 'A');
                 keypr=0;
