@@ -34,9 +34,9 @@ public class Twins {
         treasures = new ArrayList<Treasure>();
 
         // Player A/B yerleşimi
-        int[] posA = randomFreeCell();
-        int[] posB = randomFreeCell();
-        player = new Player(posA[0], posA[1], posB[0], posB[1]);
+        int[] InitialPos = randomFreeCell();
+
+        player = new Player(InitialPos[0], InitialPos[1], InitialPos[0], InitialPos[1]);
 
         // 3 C-Robot ve 3 X-Robot ekle
         for (int i = 0; i < 3; i++) {
