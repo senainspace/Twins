@@ -27,7 +27,7 @@ public class Twins {
     // HUD sağ tarafta yazacağımız başlangıç X'i (maze 0..52)
     private static final int HUD_X = 55;
 
-    public Twins() throws Exception {
+    public Twins() {
         cn = Enigma.getConsole("Twins");
         coard = new Coard();
         robots = new ArrayList<Robot>();
@@ -72,7 +72,7 @@ public class Twins {
         });
     }
 
-    public void run() throws Exception {
+    public void run() {
         // Maze'i çiz
         for (int r = 0; r < Coard.ROWS; r++)
             for (int c = 0; c < Coard.COLS; c++)
@@ -137,7 +137,7 @@ public class Twins {
                 updateHUD();
             }
 
-            Thread.sleep(50);
+            sleepMs(50);
         }
     }
 
@@ -253,6 +253,14 @@ public class Twins {
             if (coard.isWall(x, y)) continue;
             if (isOccupied(x, y)) continue;
             return new int[]{x, y};
+        }
+    }
+
+    // Exception kullanmadan basit gecikme (busy-wait). Proje için yeterli.
+    private void sleepMs(long ms) {
+        long end = System.nanoTime() + ms * 1_000_000L;
+        while (System.nanoTime() < end) {
+            // spin
         }
     }
 }
