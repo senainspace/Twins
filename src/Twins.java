@@ -245,7 +245,7 @@ public class Twins {
         }
         return false;
     }
-
+//ddd
     private int[] randomFreeCell() {
         while (true) {
             int x = 1 + rand.nextInt(Coard.COLS - 2);
