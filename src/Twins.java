@@ -27,9 +27,9 @@ public class Twins {
     // HUD sağ tarafta yazacağımız başlangıç X'i (maze 0..52)
     private static final int HUD_X = 55;
 
-    public Twins() {
+    public Twins(int mode) {
         cn = Enigma.getConsole("Twins");
-        coard = new Coard();
+        coard = new Coard(mode);
         robots = new ArrayList<Robot>();
         treasures = new ArrayList<Treasure>();
 
@@ -122,18 +122,27 @@ public class Twins {
             robotTimer++;
             if (robotTimer >= 4) {
                 for (Robot robot : robots) {
-                    // Robotun eski yerini, alttaki maze karakteriyle (treasure varsa onu da) geri bas
-                    cn.getTextWindow().output(robot.x, robot.y, coard.grid[robot.y][robot.x]);
+                    if (robot.x == player.ax && robot.y == player.ay) {
+                        drawPlayer(); // Redraw player if they were under the robot
+                    } else if (robot.x == player.bx && robot.y == player.by) {
+                        drawPlayer();
+                    } else {
+                        // Otherwise, restore the maze element (space, wall, or treasure)
+                        cn.getTextWindow().output(robot.x, robot.y, coard.grid[robot.y][robot.x]);
+                    }
 
                     robot.moveRandom(coard);
 
                     // Robot treasure'a geldiyse puan al + treasure sil
                     handleRobotTreasureCollection(robot);
 
-                    // Robotu çiz
-                    cn.getTextWindow().output(robot.x, robot.y, robot.type);
+                    // Robotu sadece player'ın altında değilse çiz
+                    if (!(robot.x == player.ax && robot.y == player.ay)) {
+                        cn.getTextWindow().output(robot.x, robot.y, robot.type);
+                    }
                 }
                 robotTimer = 0;
+                checkPlayerHarming();
                 updateHUD();
             }
 
@@ -219,7 +228,9 @@ public class Twins {
     private void updateHUD() {
         // Sağda basit bir HUD: Player ve Computer skorları
         writeText(HUD_X, 2, "P.Score : " + player.score + "   ");
-        writeText(HUD_X, 3, "C.Score : " + computerScore + "   ");
+        writeText(HUD_X, 3, "P.Life  : " + player.hp + "   ");
+        writeText(HUD_X, 4, "C.Score : " + computerScore + "   ");
+
     }
 
     private void writeText(int x, int y, String s) {
@@ -262,5 +273,57 @@ public class Twins {
         while (System.nanoTime() < end) {
             // spin
         }
+    }
+    private void checkPlayerHarming()
+    {
+        int[][] neighbors = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+
+        for (Robot robot : robots)
+        {
+            for (int[] dir : neighbors) {
+                int checkX = player.ax + dir[0];
+                int checkY = player.ay + dir[1];
+                if (robot.x == checkX && robot.y == checkY) {
+                    player.hp -= 50;
+
+                    if (player.hp <= 0) {
+                        player.hp = 0;
+                        updateHUD();
+                        handleGameOver();
+                    }
+                    return;
+                }
+            }
+        }
+
+
+    }
+    private void handleGameOver()
+    {
+        for (int r = 0; r < 23; r++) {
+            for (int c = 0; c < 80; c++) {
+                cn.getTextWindow().output(c, r, ' ');
+            }
+        }
+        String title = "==========================";
+        String msg   = "        GAME OVER         ";
+        String score = "  Final Player Score:   " + player.score;
+        String cScore = "  Final Comp. Score:   " + computerScore;
+        String exit  = "Press any key to exit...";
+
+        int startY = 8;
+        int startX = 15;
+        writeText(startX, startY,     title);
+        writeText(startX, startY + 1, msg);
+        writeText(startX, startY + 2, title);
+        writeText(startX, startY + 4, score);
+        writeText(startX, startY + 5, cScore);
+        writeText(startX, startY + 8, exit);
+
+        keypr = 0;
+        while (keypr == 0) {
+            sleepMs(100);
+        }
+        System.exit(0);
     }
 }

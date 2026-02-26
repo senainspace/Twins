@@ -1,6 +1,7 @@
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Random;
+import java.io.*;
 
 // 23x53'lük game board'u tutan class. Maze generate etme ve duvar kontrolü buradadır.
 public class Coard {
@@ -9,13 +10,18 @@ public class Coard {
     public char[][] grid;
     private Random random;
 
-    public Coard() {
+    public Coard(int mode) {
         grid = new char[ROWS][COLS];
         random = new Random();
         initializeGrid();
-        generateRandomMaze();
+        if (mode == 1)
+        {
+            loadMazeFromFile("maze.txt");
+        }else
+        {
+         generateRandomMaze();
+        }
     }
-
     private void initializeGrid() {
         for (int r = 0; r < ROWS; r++)
             for (int c = 0; c < COLS; c++)
@@ -146,5 +152,23 @@ public class Coard {
             System.arraycopy(grid[r], 0, copy[r], 0, COLS);
         }
         return copy;
+    }
+
+    public void loadMazeFromFile(String fileName) {
+        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+            String line;
+            int row = 0;
+            while ((line = br.readLine()) != null && row < ROWS) {
+                // Ensure the line isn't longer than our COLS constant
+                for (int col = 0; col < Math.min(line.length(), COLS); col++) {
+                    grid[row][col] = line.charAt(col);
+                }
+                row++;
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading maze file: " + e.getMessage());
+            // Fallback to random generation if file fails
+            generateRandomMaze();
+        }
     }
 }
