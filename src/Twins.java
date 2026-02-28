@@ -168,6 +168,15 @@ public class Twins {
                     player.mode *= -1;
                     drawPlayer();
                 }
+                else if (rkey == KeyEvent.VK_L)
+                {
+                    if (player.laserCount > 0)
+                    {
+                        fireLaser();
+                        player.laserCount--;
+                        updateHUD();
+                    }
+                }
 
                 keypr = 0;
             }
@@ -227,6 +236,14 @@ public class Twins {
     // byComputer=false -> Player score, true -> Computer score (3x)
     private void collectTreasureAt(int x, int y, boolean byComputer) {
         char cell = coard.getCoordinate(y, x);
+        if (cell == '@' && !byComputer)
+        {
+            player.laserCount++;
+            coard.grid[y][x] = ' ';
+            cn.getTextWindow().output(x,y, ' ');
+            updateHUD();
+            return;
+        }
         if (cell != '1' && cell != '2' && cell != '3') return;
 
         Treasure found = null;
@@ -385,5 +402,68 @@ public class Twins {
             sleepMs(100);
         }
         System.exit(0);
+    }
+    private void fireLaser()
+    {
+        //take coards from a and b
+        Laser laser = new Laser(player.ax, player.ay,player.bx, player.by);
+        //a and b is same row?
+        if (laser.y1 == laser.y2)
+        {
+            //always start from left
+            int start = Math.min(laser.x1, laser.x2);
+            int end = Math.max ( laser.x1, laser.x2);
+            for (int x = start +1 ; x <end; x++)
+            {
+                //laser hit the wall
+                if (coard.isWall(x, laser.y1))
+                    break;
+                cn.getTextWindow().output(x, laser.y1, '+');
+                //are there robots
+                for (Robot robot : robots)
+                {
+                    // if robot and laser is same coard
+                    if (robot.x == x && robot.y == laser.y1)
+                    {
+                        robot.hp -= 100;
+                    }
+
+                }
+            }
+            sleepMs(150);
+            //revert to default
+            for (int x = start + 1; x < end ; x++)
+            {
+                if (coard.isWall(x, laser.y1))
+                    break;
+                cn.getTextWindow().output(x, laser.y1, coard.grid[laser.y1][x]);
+
+            }
+        } else if (laser.x1 == laser.x2)
+        {
+            int start = Math.min(laser.y1, laser.y2);
+            int end = Math.max(laser.y1, laser.y2);
+            for (int y = start +1; y < end; y++)
+            {
+                if (coard.isWall(laser.x1, y))
+                    break;
+                cn.getTextWindow().output(laser.x1, y, '+');
+                for (Robot robot : robots)
+                {
+                    if (robot.x == laser.x1 && robot.y == y)
+                    {
+                        robot.hp -= 100;
+                    }
+                }
+            }
+            sleepMs(150);
+             for (int y = start +1; y < end; y++)
+             {
+                 if (coard.isWall(laser.x1, y))
+                     break;
+                 cn.getTextWindow().output(laser.x1, y, coard.grid[y][laser.x1]);
+
+             }
+        }
     }
 }
