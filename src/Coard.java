@@ -1,5 +1,3 @@
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Random;
 import java.io.*;
 
@@ -19,7 +17,7 @@ public class Coard {
             loadMazeFromFile("maze.txt");
         }else
         {
-         generateRandomMaze();
+            generateRandomMaze();
         }
     }
     private void initializeGrid() {
@@ -115,21 +113,33 @@ public class Coard {
 
         if (totalEmpty == 0) return true;
 
-        Queue<int[]> queue = new LinkedList<int[]>();
-        queue.add(new int[]{startRow, startCol});
+        // bfs mantığında ama list yerine array kullanıcaz.
+        // BFS kuyruğu olarak iki ayrı int dizisi kullanıyoruz (satır ve sütun için)
+        int maxSize = ROWS * COLS;
+        int[] queueRow = new int[maxSize];
+        int[] queueCol = new int[maxSize];
+        int head = 0, tail = 0;
+
+        queueRow[tail] = startRow;
+        queueCol[tail] = startCol;
+        tail++;
         visited[startRow][startCol] = true;
         int reachable = 0;
         int[][] dirs = {{-1,0},{1,0},{0,-1},{0,1}};
 
-        while (!queue.isEmpty()) {
-            int[] cur = queue.poll();
+        while (head < tail) {
+            int curRow = queueRow[head];
+            int curCol = queueCol[head];
+            head++;
             reachable++;
             for (int[] d : dirs) {
-                int nr = cur[0] + d[0], nc = cur[1] + d[1];
+                int nr = curRow + d[0], nc = curCol + d[1];
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS
                         && !visited[nr][nc] && grid[nr][nc] == ' ') {
                     visited[nr][nc] = true;
-                    queue.add(new int[]{nr, nc});
+                    queueRow[tail] = nr;
+                    queueCol[tail] = nc;
+                    tail++;
                 }
             }
         }

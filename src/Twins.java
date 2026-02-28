@@ -5,7 +5,6 @@ import enigma.event.TextMouseListener;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
 import java.util.Random;
 
 // Oyunun ana game loop'unu yöneten class. Input, timing, rendering ve tüm objelerin koordinasyonu burada yapılır.
@@ -13,8 +12,13 @@ public class Twins {
     Console cn;
     Coard coard;
     Player player;
-    ArrayList<Robot> robots;
-    ArrayList<Treasure> treasures;
+
+    // ArrayList yerine sabit boyutlu diziler kullanıyoruz
+    Robot[] robots = new Robot[10];
+    int robotCount = 0;
+
+    Treasure[] treasures = new Treasure[50];
+    int treasureCount = 0;
 
     // Bilgisayarın (robotların) toplam skoru
     int computerScore = 0;
@@ -30,8 +34,6 @@ public class Twins {
     public Twins(int mode) {
         cn = Enigma.getConsole("Twins");
         coard = new Coard(mode);
-        robots = new ArrayList<Robot>();
-        treasures = new ArrayList<Treasure>();
 
         // Player A/B yerleşimi
         int[] InitialPos = randomFreeCell();
@@ -41,11 +43,11 @@ public class Twins {
         // 3 C-Robot ve 3 X-Robot ekle
         for (int i = 0; i < 3; i++) {
             int[] p = randomFreeCell();
-            robots.add(new Robot(p[0], p[1], 'C'));
+            robots[robotCount++] = new Robot(p[0], p[1], 'C');
         }
         for (int i = 0; i < 3; i++) {
             int[] p = randomFreeCell();
-            robots.add(new Robot(p[0], p[1], 'X'));
+            robots[robotCount++] = new Robot(p[0], p[1], 'X');
         }
 
         // Başlangıç için birkaç treasure koy (test edebilmek için).
@@ -79,13 +81,13 @@ public class Twins {
                 cn.getTextWindow().output(c, r, coard.grid[r][c]);
 
         // Treasure'ları çiz (grid zaten içeriyor ama garanti olsun)
-        for (Treasure t : treasures) {
-            cn.getTextWindow().output(t.x, t.y, t.symbol);
+        for (int i = 0; i < treasureCount; i++) {
+            cn.getTextWindow().output(treasures[i].x, treasures[i].y, treasures[i].symbol);
         }
 
         // Robotları çiz
-        for (Robot robot : robots)
-            cn.getTextWindow().output(robot.x, robot.y, robot.type);
+        for (int i = 0; i < robotCount; i++)
+            cn.getTextWindow().output(robots[i].x, robots[i].y, robots[i].type);
 
         // Player'ı çiz
         drawPlayer();
@@ -121,7 +123,8 @@ public class Twins {
             // --- ROBOT HAREKETİ (her 4 time unit) ---
             robotTimer++;
             if (robotTimer >= 4) {
-                for (Robot robot : robots) {
+                for (int i = 0; i < robotCount; i++) {
+                    Robot robot = robots[i];
                     if (robot.x == player.ax && robot.y == player.ay) {
                         drawPlayer(); // Redraw player if they were under the robot
                     } else if (robot.x == player.bx && robot.y == player.by) {
@@ -170,17 +173,18 @@ public class Twins {
         char cell = coard.getCoordinate(y, x);
         if (cell != '1' && cell != '2' && cell != '3') return;
 
-        // Treasure objesini bul
-        Treasure found = null;
-        for (Treasure t : treasures) {
-            if (t.x == x && t.y == y) { found = t; break; }
+        // Treasure objesini bul (dizi içinde arama yapıyoruz)
+        int foundIdx = -1;
+        for (int i = 0; i < treasureCount; i++) {
+            if (treasures[i].x == x && treasures[i].y == y) { foundIdx = i; break; }
         }
+
         // Eğer listede yoksa da sembolden puan hesaplayıp devam edelim
         int pPoints;
         int cPoints;
-        if (found != null) {
-            pPoints = found.playerPoints;
-            cPoints = found.computerPoints;
+        if (foundIdx != -1) {
+            pPoints = treasures[foundIdx].playerPoints;
+            cPoints = treasures[foundIdx].computerPoints;
         } else {
             Treasure tmp = new Treasure(x, y, cell);
             pPoints = tmp.playerPoints;
@@ -190,16 +194,21 @@ public class Twins {
         if (byComputer) computerScore += cPoints;
         else player.score += pPoints;
 
-        // Treasure'ı sil (grid'i boşalt, listeden çıkar, ekrandan temizle)
+        // Treasure'ı sil (grid'i boşalt, diziden çıkar, ekrandan temizle)
         coard.grid[y][x] = ' ';
         cn.getTextWindow().output(x, y, ' ');
-        if (found != null) treasures.remove(found);
+        if (foundIdx != -1) {
+            // Silinen elemanın yerine son elemanı taşı, sayacı azalt
+            treasures[foundIdx] = treasures[treasureCount - 1];
+            treasures[treasureCount - 1] = null;
+            treasureCount--;
+        }
     }
 
     private void placeTreasureRandom(char symbol) {
         int[] p = randomFreeCell();
         Treasure t = new Treasure(p[0], p[1], symbol);
-        treasures.add(t);
+        treasures[treasureCount++] = t;
         coard.grid[p[1]][p[0]] = symbol;
     }
 
@@ -247,12 +256,12 @@ public class Twins {
             if ((player.ax == x && player.ay == y) || (player.bx == x && player.by == y)) return true;
         }
         // Robots
-        for (Robot r : robots) {
-            if (r.x == x && r.y == y) return true;
+        for (int i = 0; i < robotCount; i++) {
+            if (robots[i].x == x && robots[i].y == y) return true;
         }
         // Treasures
-        for (Treasure t : treasures) {
-            if (t.x == x && t.y == y) return true;
+        for (int i = 0; i < treasureCount; i++) {
+            if (treasures[i].x == x && treasures[i].y == y) return true;
         }
         return false;
     }
@@ -267,7 +276,7 @@ public class Twins {
         }
     }
 
-    // Exception kullanmadan basit gecikme (busy-wait). Proje için yeterli.
+    // Exception kullanmadan basit gecikme (busy-wait). Oyun loop'unda sleep kullanmak için Thread.sleep() yerine bunu kullanıyoruz.
     private void sleepMs(long ms) {
         long end = System.nanoTime() + ms * 1_000_000L;
         while (System.nanoTime() < end) {
@@ -278,8 +287,9 @@ public class Twins {
     {
         int[][] neighbors = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 
-        for (Robot robot : robots)
+        for (int i = 0; i < robotCount; i++)
         {
+            Robot robot = robots[i];
             for (int[] dir : neighbors) {
                 int checkX = player.ax + dir[0];
                 int checkY = player.ay + dir[1];
