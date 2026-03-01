@@ -55,7 +55,7 @@ public class Twins {
         // 3 C-Robot ve 3 X-Robot ekle
         for (int i = 0; i < 3; i++) {
             int[] p = randomFreeCell();
-            robots[robotCount++] = new Robot(p[0], p[1], 'C');
+            addRobot(new Robot(p[0], p[1], 'C'));
         }
         for (int i = 0; i < 3; i++) {
             int[] p = randomFreeCell();
@@ -79,13 +79,13 @@ public class Twins {
         if (element == 'C' || element == 'X') {
             // Yeni robot ekle
             int[] p = randomFreeCell();
-            robots[robotCount++] = new Robot(p[0], p[1], element);
+            addRobot(new Robot(p[0], p[1], element));
             cn.getTextWindow().output(p[0], p[1], element);
         } else {
             // Treasure veya laser paketi grid'e yerleştir
             int[] p = randomFreeCell();
             if (element == '1' || element == '2' || element == '3') {
-                treasures[treasureCount++] = new Treasure(p[0], p[1], element);
+                addTreasure(new Treasure(p[0], p[1], element));
                 coard.grid[p[1]][p[0]] = element;
             } else {
                 // '@' – laser paketi: şimdilik sadece grid'e işaretle
@@ -258,7 +258,7 @@ public class Twins {
     private void placeTreasureRandom(char symbol) {
         int[] p = randomFreeCell();
         Treasure t = new Treasure(p[0], p[1], symbol);
-        treasures[treasureCount++] = t;
+        addTreasure(t);
         coard.grid[p[1]][p[0]] = symbol;
     }
 
@@ -392,5 +392,25 @@ public class Twins {
             sleepMs(100);
         }
         System.exit(0);
+    }
+
+    // Robotu diziye ekler. Dizi doluysa kapasiteyi 2 katına çıkarır.
+    private void addRobot(Robot r) {
+        if (robotCount == robots.length) {
+            Robot[] newArr = new Robot[robots.length * 2];
+            System.arraycopy(robots, 0, newArr, 0, robotCount);
+            robots = newArr;
+        }
+        robots[robotCount++] = r;
+    }
+
+    // Treasure'ı diziye ekler. Dizi doluysa kapasiteyi 2 katına çıkarır.
+    private void addTreasure(Treasure t) {
+        if (treasureCount == treasures.length) {
+            Treasure[] newArr = new Treasure[treasures.length * 2];
+            System.arraycopy(treasures, 0, newArr, 0, treasureCount);
+            treasures = newArr;
+        }
+        treasures[treasureCount++] = t;
     }
 }
