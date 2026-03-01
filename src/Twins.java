@@ -5,62 +5,64 @@ import enigma.event.TextMouseListener;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
 import java.util.Random;
 
-// Main class that manages the game loop: input, timing, rendering, and coordination of all objects.
+// Oyunun ana döngüsünü yöneten class. Input, zamanlama, çizim ve tüm objelerin koordinasyonu burada yapılır.
 public class Twins {
     Console cn;
     Coard coard;
     Player player;
-    ArrayList<Robot> robots;
-    ArrayList<Treasure> treasures;
 
-    // Total score of the computer (robots)
+    // ArrayList yerine sabit boyutlu diziler kullanıyoruz
+    Robot[]    robots    = new Robot[50];
+    int        robotCount = 0;
+
+    Treasure[] treasures    = new Treasure[100];
+    int        treasureCount = 0;
+
+    // Bilgisayarın (robotların) toplam skoru
     int computerScore = 0;
 
     Random rand = new Random();
 
     int keypr, rkey;
     int robotTimer = 0;
-    int inputTimer = 0; // Timer for game input system (new element every 20 units)
+    int inputTimer = 0; // Oyun input sistemi için sayaç (her 20 birimde yeni eleman)
 
-    // HUD start X position (maze is 0..52)
+    // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
     private static final int HUD_X = 55;
 
-    // Start time for real-time seconds display
+    // Gerçek zamanlı saniye göstergesi için başlangıç zamanı
     private long startTimeMs;
 
-    // Input element weights: 1→2, 2→2, 3→2, @→3, C→1, X→1  (total = 11)
-    // @ is placed but currently has no effect (laser not yet implemented)
-    private static final char[] INPUT_ELEMENTS   = {'1', '2', '3', '@', 'C', 'X'};
-    private static final int[]  INPUT_WEIGHTS    = { 2,   2,   2,   3,   1,   1 };
-    private static final int    WEIGHT_TOTAL     = 11;
+    // Input elemanlarının ağırlıkları: 1→2, 2→2, 3→2, @→3, C→1, X→1 (toplam = 11)
+    // @ yerleştirilir ama laser henüz implemente edilmediğinden etkisi yok
+    private static final char[] INPUT_ELEMENTS = {'1', '2', '3', '@', 'C', 'X'};
+    private static final int[]  INPUT_WEIGHTS  = { 2,   2,   2,   3,   1,   1 };
+    private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
         cn = Enigma.getConsole("Twins");
         coard = new Coard(mode);
-        robots = new ArrayList<Robot>();
-        treasures = new ArrayList<Treasure>();
 
-        // Start time (used for Time : seconds)
+        // Başlangıç zamanı (Time : saniye gösterimi için)
         startTimeMs = System.currentTimeMillis();
 
-        // Player A/B placement
+        // Player A/B başlangıç konumu
         int[] InitialPos = randomFreeCell();
         player = new Player(InitialPos[0], InitialPos[1], InitialPos[0], InitialPos[1]);
 
-        // Add 3 C-Robots and 3 X-Robots
+        // 3 C-Robot ve 3 X-Robot ekle
         for (int i = 0; i < 3; i++) {
             int[] p = randomFreeCell();
-            robots.add(new Robot(p[0], p[1], 'C'));
+            addRobot(new Robot(p[0], p[1], 'C'));
         }
         for (int i = 0; i < 3; i++) {
             int[] p = randomFreeCell();
-            robots.add(new Robot(p[0], p[1], 'X'));
+            robots[robotCount++] = new Robot(p[0], p[1], 'X');
         }
 
-        // Place the first 10 elements of the game input system at the beginning
+        // Oyun başında input sisteminin ilk 10 elemanını yerleştir
         for (int i = 0; i < 10; i++) {
             spawnInputElement();
         }
@@ -68,39 +70,32 @@ public class Twins {
         setupInput();
     }
 
-    /**
-     * Picks a random element according to the input system probabilities and
-     * places it at a random free cell in the maze.
-     *
-     * Probabilities: 1→2/11, 2→2/11, 3→2/11, @→3/11, C→1/11, X→1/11
-     * @ is placed on the grid but has no gameplay effect until laser is implemented.
-     * C and X spawn new robots.
-     */
+    // Olasılıklara göre rastgele bir eleman seçip maze'e yerleştirir.
+    // Olasılıklar: 1→2/11, 2→2/11, 3→2/11, @→3/11, C→1/11, X→1/11
+    // C ve X yeni robot spawn eder; diğerleri grid'e yerleştirilir.
     private void spawnInputElement() {
         char element = pickInputElement();
 
         if (element == 'C' || element == 'X') {
-            // Spawn a new robot
+            // Yeni robot ekle
             int[] p = randomFreeCell();
-            Robot newRobot = new Robot(p[0], p[1], element);
-            robots.add(newRobot);
+            addRobot(new Robot(p[0], p[1], element));
             cn.getTextWindow().output(p[0], p[1], element);
         } else {
-            // Place a treasure or laser pack on the grid
+            // Treasure veya laser paketi grid'e yerleştir
             int[] p = randomFreeCell();
             if (element == '1' || element == '2' || element == '3') {
-                Treasure t = new Treasure(p[0], p[1], element);
-                treasures.add(t);
+                addTreasure(new Treasure(p[0], p[1], element));
                 coard.grid[p[1]][p[0]] = element;
             } else {
-                // '@' – laser pack: just mark on grid for now
+                // '@' – laser paketi: şimdilik sadece grid'e işaretle
                 coard.grid[p[1]][p[0]] = element;
             }
             cn.getTextWindow().output(p[0], p[1], element);
         }
     }
 
-    /** Weighted random pick from INPUT_ELEMENTS using INPUT_WEIGHTS. */
+    // INPUT_WEIGHTS ağırlıklarına göre INPUT_ELEMENTS dizisinden rastgele eleman seçer.
     private char pickInputElement() {
         int roll = rand.nextInt(WEIGHT_TOTAL); // 0..10
         int cumulative = 0;
@@ -108,7 +103,7 @@ public class Twins {
             cumulative += INPUT_WEIGHTS[i];
             if (roll < cumulative) return INPUT_ELEMENTS[i];
         }
-        return INPUT_ELEMENTS[0]; // fallback
+        return INPUT_ELEMENTS[0]; // güvenlik için fallback
     }
 
     private void setupInput() {
@@ -127,28 +122,28 @@ public class Twins {
     }
 
     public void run() {
-        // Draw maze
+        // Maze'i çiz
         for (int r = 0; r < Coard.ROWS; r++)
             for (int c = 0; c < Coard.COLS; c++)
                 cn.getTextWindow().output(c, r, coard.grid[r][c]);
 
-        // Draw treasures (grid already has them, but ensure)
-        for (Treasure t : treasures) {
-            cn.getTextWindow().output(t.x, t.y, t.symbol);
+        // Treasure'ları çiz (grid zaten içeriyor ama garanti olsun)
+        for (int i = 0; i < treasureCount; i++) {
+            cn.getTextWindow().output(treasures[i].x, treasures[i].y, treasures[i].symbol);
         }
 
-        // Draw robots
-        for (Robot robot : robots)
-            cn.getTextWindow().output(robot.x, robot.y, robot.type);
+        // Robotları çiz
+        for (int i = 0; i < robotCount; i++)
+            cn.getTextWindow().output(robots[i].x, robots[i].y, robots[i].type);
 
-        // Draw player
+        // Player'ı çiz
         drawPlayer();
 
         updateHUD();
 
-        // Game loop
+        // Oyun döngüsü
         while (true) {
-            // --- PLAYER INPUT ---
+            // --- OYUNCU GİRİŞİ ---
             if (keypr == 1) {
                 int dx = 0, dy = 0;
 
@@ -160,7 +155,7 @@ public class Twins {
                 if (dx != 0 || dy != 0) {
                     clearPlayer();
                     player.move(dx, dy, coard);
-                    // Treasure collection (A or B)
+                    // Treasure toplama (A veya B)
                     handlePlayerTreasureCollection();
                     drawPlayer();
                     updateHUD();
@@ -168,23 +163,15 @@ public class Twins {
                     player.mode *= -1;
                     drawPlayer();
                 }
-                else if (rkey == KeyEvent.VK_L)
-                {
-                    if (player.laserCount > 0)
-                    {
-                        fireLaser();
-                        player.laserCount--;
-                        updateHUD();
-                    }
-                }
 
                 keypr = 0;
             }
 
-            // --- ROBOT MOVEMENT (every 4 time units) ---
+            // --- ROBOT HAREKETİ (her 4 time unit'te bir) ---
             robotTimer++;
             if (robotTimer >= 4) {
-                for (Robot robot : robots) {
+                for (int i = 0; i < robotCount; i++) {
+                    Robot robot = robots[i];
                     if (robot.x == player.ax && robot.y == player.ay) {
                         drawPlayer();
                     } else if (robot.x == player.bx && robot.y == player.by) {
@@ -195,10 +182,10 @@ public class Twins {
 
                     robot.step(coard);
 
-                    // If robot steps on treasure, score + remove treasure
+                    // Robot treasure'a bastıysa puan ekle ve treasure'ı kaldır
                     handleRobotTreasureCollection(robot);
 
-                    // Draw robot (if not on top of player A)
+                    // Robotu player A'nın üstünde değilse çiz
                     if (!(robot.x == player.ax && robot.y == player.ay)) {
                         cn.getTextWindow().output(robot.x, robot.y, robot.type);
                     }
@@ -208,7 +195,7 @@ public class Twins {
                 updateHUD();
             }
 
-            // --- GAME INPUT SYSTEM (every 20 time units) ---
+            // --- OYUN INPUT SİSTEMİ (her 20 time unit'te bir) ---
             inputTimer++;
             if (inputTimer >= 20) {
                 spawnInputElement();
@@ -220,7 +207,7 @@ public class Twins {
         }
     }
 
-    // --- TREASURE COLLECTION / SCORING ---
+    // --- TREASURE TOPLAMA / PUANLAMA ---
 
     private void handlePlayerTreasureCollection() {
         collectTreasureAt(player.ax, player.ay, false);
@@ -233,29 +220,22 @@ public class Twins {
         collectTreasureAt(robot.x, robot.y, true);
     }
 
-    // byComputer=false -> Player score, true -> Computer score (3x)
+    // byComputer=false -> Player puanı, true -> Bilgisayar puanı (3x)
     private void collectTreasureAt(int x, int y, boolean byComputer) {
         char cell = coard.getCoordinate(y, x);
-        if (cell == '@' && !byComputer)
-        {
-            player.laserCount++;
-            coard.grid[y][x] = ' ';
-            cn.getTextWindow().output(x,y, ' ');
-            updateHUD();
-            return;
-        }
         if (cell != '1' && cell != '2' && cell != '3') return;
 
-        Treasure found = null;
-        for (Treasure t : treasures) {
-            if (t.x == x && t.y == y) { found = t; break; }
+        // Treasure dizisinde ilgili konumu ara
+        int foundIdx = -1;
+        for (int i = 0; i < treasureCount; i++) {
+            if (treasures[i].x == x && treasures[i].y == y) { foundIdx = i; break; }
         }
 
         int pPoints;
         int cPoints;
-        if (found != null) {
-            pPoints = found.playerPoints;
-            cPoints = found.computerPoints;
+        if (foundIdx != -1) {
+            pPoints = treasures[foundIdx].playerPoints;
+            cPoints = treasures[foundIdx].computerPoints;
         } else {
             Treasure tmp = new Treasure(x, y, cell);
             pPoints = tmp.playerPoints;
@@ -267,17 +247,22 @@ public class Twins {
 
         coard.grid[y][x] = ' ';
         cn.getTextWindow().output(x, y, ' ');
-        if (found != null) treasures.remove(found);
+        if (foundIdx != -1) {
+            // Silinen elemanın yerine dizinin son elemanını taşı, sayacı azalt
+            treasures[foundIdx] = treasures[treasureCount - 1];
+            treasures[treasureCount - 1] = null;
+            treasureCount--;
+        }
     }
 
     private void placeTreasureRandom(char symbol) {
         int[] p = randomFreeCell();
         Treasure t = new Treasure(p[0], p[1], symbol);
-        treasures.add(t);
+        addTreasure(t);
         coard.grid[p[1]][p[0]] = symbol;
     }
 
-    // --- DRAW HELPERS ---
+    // --- ÇİZİM YARDIMCI METODLARı ---
 
     private void drawPlayer() {
         enigma.console.TextAttributes attr;
@@ -306,11 +291,12 @@ public class Twins {
         writeText(HUD_X, 3, "P.Life  : " + player.hp + "   ");
         writeText(HUD_X, 4, "P.Laser : " + player.laserCount + "   ");
 
+        // Aktif robot sayılarını say
         int cCount = 0, xCount = 0;
-        for (Robot r : robots) {
-            if (r.isAlive()) {
-                if (r.type == 'C') cCount++;
-                else if (r.type == 'X') xCount++;
+        for (int i = 0; i < robotCount; i++) {
+            if (robots[i].isAlive()) {
+                if (robots[i].type == 'C') cCount++;
+                else if (robots[i].type == 'X') xCount++;
             }
         }
 
@@ -325,17 +311,20 @@ public class Twins {
         }
     }
 
-    // --- POSITION HELPERS ---
+    // --- KONUM YARDIMCI METODLARı ---
 
     private boolean isOccupied(int x, int y) {
+        // Player kontrolü
         if (player != null) {
             if ((player.ax == x && player.ay == y) || (player.bx == x && player.by == y)) return true;
         }
-        for (Robot r : robots) {
-            if (r.x == x && r.y == y) return true;
+        // Robot kontrolü
+        for (int i = 0; i < robotCount; i++) {
+            if (robots[i].x == x && robots[i].y == y) return true;
         }
-        for (Treasure t : treasures) {
-            if (t.x == x && t.y == y) return true;
+        // Treasure kontrolü
+        for (int i = 0; i < treasureCount; i++) {
+            if (treasures[i].x == x && treasures[i].y == y) return true;
         }
         return false;
     }
@@ -358,7 +347,8 @@ public class Twins {
     private void checkPlayerHarming() {
         int[][] neighbors = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 
-        for (Robot robot : robots) {
+        for (int i = 0; i < robotCount; i++) {
+            Robot robot = robots[i];
             for (int[] dir : neighbors) {
                 int checkX = player.ax + dir[0];
                 int checkY = player.ay + dir[1];
@@ -403,67 +393,24 @@ public class Twins {
         }
         System.exit(0);
     }
-    private void fireLaser()
-    {
-        //take coards from a and b
-        Laser laser = new Laser(player.ax, player.ay,player.bx, player.by);
-        //a and b is same row?
-        if (laser.y1 == laser.y2)
-        {
-            //always start from left
-            int start = Math.min(laser.x1, laser.x2);
-            int end = Math.max ( laser.x1, laser.x2);
-            for (int x = start +1 ; x <end; x++)
-            {
-                //laser hit the wall
-                if (coard.isWall(x, laser.y1))
-                    break;
-                cn.getTextWindow().output(x, laser.y1, '+');
-                //are there robots
-                for (Robot robot : robots)
-                {
-                    // if robot and laser is same coard
-                    if (robot.x == x && robot.y == laser.y1)
-                    {
-                        robot.hp -= 100;
-                    }
 
-                }
-            }
-            sleepMs(150);
-            //revert to default
-            for (int x = start + 1; x < end ; x++)
-            {
-                if (coard.isWall(x, laser.y1))
-                    break;
-                cn.getTextWindow().output(x, laser.y1, coard.grid[laser.y1][x]);
-
-            }
-        } else if (laser.x1 == laser.x2)
-        {
-            int start = Math.min(laser.y1, laser.y2);
-            int end = Math.max(laser.y1, laser.y2);
-            for (int y = start +1; y < end; y++)
-            {
-                if (coard.isWall(laser.x1, y))
-                    break;
-                cn.getTextWindow().output(laser.x1, y, '+');
-                for (Robot robot : robots)
-                {
-                    if (robot.x == laser.x1 && robot.y == y)
-                    {
-                        robot.hp -= 100;
-                    }
-                }
-            }
-            sleepMs(150);
-             for (int y = start +1; y < end; y++)
-             {
-                 if (coard.isWall(laser.x1, y))
-                     break;
-                 cn.getTextWindow().output(laser.x1, y, coard.grid[y][laser.x1]);
-
-             }
+    // Robotu diziye ekler. Dizi doluysa kapasiteyi 2 katına çıkarır.
+    private void addRobot(Robot r) {
+        if (robotCount == robots.length) {
+            Robot[] newArr = new Robot[robots.length * 2];
+            System.arraycopy(robots, 0, newArr, 0, robotCount);
+            robots = newArr;
         }
+        robots[robotCount++] = r;
+    }
+
+    // Treasure'ı diziye ekler. Dizi doluysa kapasiteyi 2 katına çıkarır.
+    private void addTreasure(Treasure t) {
+        if (treasureCount == treasures.length) {
+            Treasure[] newArr = new Treasure[treasures.length * 2];
+            System.arraycopy(treasures, 0, newArr, 0, treasureCount);
+            treasures = newArr;
+        }
+        treasures[treasureCount++] = t;
     }
 }
