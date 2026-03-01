@@ -113,7 +113,6 @@ public class Coard {
 
         if (totalEmpty == 0) return true;
 
-        // bfs mantığında ama list yerine array kullanıcaz.
         // BFS kuyruğu olarak iki ayrı int dizisi kullanıyoruz (satır ve sütun için)
         int maxSize = ROWS * COLS;
         int[] queueRow = new int[maxSize];
@@ -169,15 +168,15 @@ public class Coard {
             String line;
             int row = 0;
             while ((line = br.readLine()) != null && row < ROWS) {
-                // Ensure the line isn't longer than our COLS constant
+                // Satır COLS sınırını aşmamalı
                 for (int col = 0; col < Math.min(line.length(), COLS); col++) {
                     grid[row][col] = line.charAt(col);
                 }
                 row++;
             }
         } catch (IOException e) {
-            System.out.println("Error loading maze file: " + e.getMessage());
-            // Fallback to random generation if file fails
+            System.out.println("Maze dosyası yüklenemedi: " + e.getMessage());
+            // Dosya okunamazsa rastgele maze üret
             generateRandomMaze();
         }
     }
