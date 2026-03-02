@@ -28,6 +28,8 @@ public class Twins {
     int keypr, rkey;
     int robotTimer = 0;
     int inputTimer = 0; // Oyun input sistemi için sayaç (her 20 birimde yeni eleman)
+    boolean paused = false;
+
 
     // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
     private static final int HUD_X = 55;
@@ -115,6 +117,11 @@ public class Twins {
         cn.getTextWindow().addKeyListener(new KeyListener() {
             public void keyTyped(KeyEvent e) {}
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER)
+                {
+                    paused = !paused;
+                    return;
+                }
                 if (keypr == 0) { keypr = 1; rkey = e.getKeyCode(); }
             }
             public void keyReleased(KeyEvent e) {}
@@ -144,6 +151,11 @@ public class Twins {
         // Oyun döngüsü
         while (true) {
             // --- OYUNCU GİRİŞİ ---
+            if (paused)
+            {
+                sleepMs(50);
+                continue;
+            }
             if (keypr == 1) {
                 int dx = 0, dy = 0;
 
