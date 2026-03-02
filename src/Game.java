@@ -14,10 +14,10 @@ public class Game {
     public int keypr;
     public int rkey;
 
-    Maze maze; // Add reference to the maze
+    Coard maze; // Add reference to the maze
 
     // Constructor only sets up the game data
-    Game(Maze m) throws Exception {
+    Game(Coard m) throws Exception {
         this.maze = m; // Store the maze
 
         tmlis=new TextMouseListener() {
