@@ -9,6 +9,14 @@ public class TwinsTest {
         System.out.println("2. Generate Random Maze");
         System.out.print("Select an option: ");
         int mode = sc.nextInt();
+
+        // 1 veya 2 dışında bir şey girilirse tekrar sor
+        while (mode != 1 && mode != 2) {
+            System.out.println("Invalid input! Please enter 1 or 2.");
+            System.out.print("Select an option: ");
+            mode = sc.nextInt();
+        }
+
         Twins game = new Twins(mode);
         game.run();
     }
