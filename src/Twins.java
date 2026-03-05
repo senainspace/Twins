@@ -43,7 +43,7 @@ public class Twins {
     private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
-        cn = Enigma.getConsole("Twins", 80, 32, 24);
+        cn = Enigma.getConsole("Twins"); //consoleu default boyut yaptık çünkü değiştirince büyüdüğünde maze bozuluyo
         coard = new Coard(mode);
 
         // Başlangıç zamanı (Time : saniye gösterimi için)
