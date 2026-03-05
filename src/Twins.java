@@ -8,12 +8,13 @@ import java.awt.event.KeyListener;
 import java.util.Random;
 
 // Oyunun ana döngüsünü yöneten class. Input, zamanlama, çizim ve tüm objelerin koordinasyonu burada yapılır.
+// Değiştirildi: gettextwindow kullanırken koordinatı direkt output'a vermek yerine cursor pozisyonu ayarlayarak yazdık.
+// Değiştirildi: robotlar ve player aynı kareye gelemez, isOccupied ve isRobotAt metodlarıyla hareket sırasında kontrol edildi.
 public class Twins {
     Console cn;
     Coard coard;
     Player player;
 
-    // ArrayList yerine sabit boyutlu diziler kullanıyoruz
     Robot[]    robots    = new Robot[50];
     int        robotCount = 0;
 
@@ -32,17 +33,17 @@ public class Twins {
     // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
     private static final int HUD_X = 55;
 
-    // Gerçek zamanlı saniye göstergesi için başlangıç zamanı
+    // Realtime saniye göstergesi için başlangıç zamanı
     private long startTimeMs;
 
     // Input elemanlarının ağırlıkları: 1→2, 2→2, 3→2, @→3, C→1, X→1 (toplam = 11)
-    // @ yerleştirilir ama laser henüz implemente edilmediğinden etkisi yok
+    // @ yerleştirdik ama laser paketi olarak sadece görsel amaçlı kullanacağız.
     private static final char[] INPUT_ELEMENTS = {'1', '2', '3', '@', 'C', 'X'};
     private static final int[]  INPUT_WEIGHTS  = { 2,   2,   2,   3,   1,   1 };
     private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
-        cn = Enigma.getConsole("Twins");
+        cn = Enigma.getConsole("Twins"); //consoleu default boyut yaptık çünkü değiştirince büyüdüğünde maze bozuluyo
         coard = new Coard(mode);
 
         // Başlangıç zamanı (Time : saniye gösterimi için)
@@ -51,16 +52,6 @@ public class Twins {
         // Player A/B başlangıç konumu
         int[] InitialPos = randomFreeCell();
         player = new Player(InitialPos[0], InitialPos[1], InitialPos[0], InitialPos[1]);
-
-        // 3 C-Robot ve 3 X-Robot ekle
-        for (int i = 0; i < 3; i++) {
-            int[] p = randomFreeCell();
-            addRobot(new Robot(p[0], p[1], 'C'));
-        }
-        for (int i = 0; i < 3; i++) {
-            int[] p = randomFreeCell();
-            robots[robotCount++] = new Robot(p[0], p[1], 'X');
-        }
 
         // Oyun başında input sisteminin ilk 10 elemanını yerleştir
         for (int i = 0; i < 10; i++) {
@@ -80,7 +71,7 @@ public class Twins {
             // Yeni robot ekle
             int[] p = randomFreeCell();
             addRobot(new Robot(p[0], p[1], element));
-            cn.getTextWindow().output(p[0], p[1], element);
+            cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
         } else {
             // Treasure veya laser paketi grid'e yerleştir
             int[] p = randomFreeCell();
@@ -91,7 +82,7 @@ public class Twins {
                 // '@' – laser paketi: şimdilik sadece grid'e işaretle
                 coard.grid[p[1]][p[0]] = element;
             }
-            cn.getTextWindow().output(p[0], p[1], element);
+            cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
         }
     }
 
@@ -103,7 +94,7 @@ public class Twins {
             cumulative += INPUT_WEIGHTS[i];
             if (roll < cumulative) return INPUT_ELEMENTS[i];
         }
-        return INPUT_ELEMENTS[0]; // güvenlik için fallback
+        return INPUT_ELEMENTS[0];
     }
 
     private void setupInput() {
@@ -124,17 +115,19 @@ public class Twins {
     public void run() {
         // Maze'i çiz
         for (int r = 0; r < Coard.ROWS; r++)
-            for (int c = 0; c < Coard.COLS; c++)
-                cn.getTextWindow().output(c, r, coard.grid[r][c]);
+            for (int c = 0; c < Coard.COLS; c++) {
+                cn.getTextWindow().setCursorPosition(c, r); cn.getTextWindow().output(coard.grid[r][c]);
+            }
 
-        // Treasure'ları çiz (grid zaten içeriyor ama garanti olsun)
+        // Treasure'ları çiz
         for (int i = 0; i < treasureCount; i++) {
-            cn.getTextWindow().output(treasures[i].x, treasures[i].y, treasures[i].symbol);
+            cn.getTextWindow().setCursorPosition(treasures[i].x, treasures[i].y); cn.getTextWindow().output(treasures[i].symbol);
         }
 
         // Robotları çiz
-        for (int i = 0; i < robotCount; i++)
-            cn.getTextWindow().output(robots[i].x, robots[i].y, robots[i].type);
+        for (int i = 0; i < robotCount; i++) {
+            drawRobot(robots[i]);
+        }
 
         // Player'ı çiz
         drawPlayer();
@@ -154,8 +147,9 @@ public class Twins {
 
                 if (dx != 0 || dy != 0) {
                     clearPlayer();
-                    player.move(dx, dy, coard);
-                    // Treasure toplama (A veya B)
+                    // robots arrayi de geçiriliyor; player robotun üstüne geçemesin diye
+                    player.move(dx, dy, coard, robots, robotCount);
+                    // Treasure toplama
                     handlePlayerTreasureCollection();
                     drawPlayer();
                     updateHUD();
@@ -177,17 +171,18 @@ public class Twins {
                     } else if (robot.x == player.bx && robot.y == player.by) {
                         drawPlayer();
                     } else {
-                        cn.getTextWindow().output(robot.x, robot.y, coard.grid[robot.y][robot.x]);
+                        cn.getTextWindow().setCursorPosition(robot.x, robot.y); cn.getTextWindow().output(coard.grid[robot.y][robot.x]);
                     }
 
-                    robot.step(coard);
+                    // tüm robotlar ve player konumları verilir aynı kareye iki nesne giremez
+                    robot.step(coard, robots, robotCount, player.ax, player.ay, player.bx, player.by);
 
                     // Robot treasure'a bastıysa puan ekle ve treasure'ı kaldır
                     handleRobotTreasureCollection(robot);
 
                     // Robotu player A'nın üstünde değilse çiz
                     if (!(robot.x == player.ax && robot.y == player.ay)) {
-                        cn.getTextWindow().output(robot.x, robot.y, robot.type);
+                        drawRobot(robot);
                     }
                 }
                 robotTimer = 0;
@@ -225,7 +220,7 @@ public class Twins {
         char cell = coard.getCoordinate(y, x);
         if (cell != '1' && cell != '2' && cell != '3') return;
 
-        // Treasure dizisinde ilgili konumu ara
+        // Treasure arrayinde ilgili konumu ara
         int foundIdx = -1;
         for (int i = 0; i < treasureCount; i++) {
             if (treasures[i].x == x && treasures[i].y == y) { foundIdx = i; break; }
@@ -246,7 +241,7 @@ public class Twins {
         else player.score += pPoints;
 
         coard.grid[y][x] = ' ';
-        cn.getTextWindow().output(x, y, ' ');
+        cn.getTextWindow().setCursorPosition(x, y); cn.getTextWindow().output(' ');
         if (foundIdx != -1) {
             // Silinen elemanın yerine dizinin son elemanını taşı, sayacı azalt
             treasures[foundIdx] = treasures[treasureCount - 1];
@@ -273,13 +268,19 @@ public class Twins {
             attr = new enigma.console.TextAttributes(java.awt.Color.MAGENTA, java.awt.Color.BLACK);
         }
 
-        cn.getTextWindow().output(player.bx, player.by, 'B', attr);
-        cn.getTextWindow().output(player.ax, player.ay, 'A', attr);
+        cn.getTextWindow().setCursorPosition(player.bx, player.by); cn.getTextWindow().output('B', attr);
+        cn.getTextWindow().setCursorPosition(player.ax, player.ay); cn.getTextWindow().output('A', attr);
+    }
+
+    private void drawRobot(Robot robot) {
+        enigma.console.TextAttributes attr = new enigma.console.TextAttributes(java.awt.Color.RED, java.awt.Color.BLACK);
+        cn.getTextWindow().setCursorPosition(robot.x, robot.y);
+        cn.getTextWindow().output(robot.type, attr);
     }
 
     private void clearPlayer() {
-        cn.getTextWindow().output(player.ax, player.ay, coard.grid[player.ay][player.ax]);
-        cn.getTextWindow().output(player.bx, player.by, coard.grid[player.by][player.bx]);
+        cn.getTextWindow().setCursorPosition(player.ax, player.ay); cn.getTextWindow().output(coard.grid[player.ay][player.ax]);
+        cn.getTextWindow().setCursorPosition(player.bx, player.by); cn.getTextWindow().output(coard.grid[player.by][player.bx]);
     }
 
     private void updateHUD() {
@@ -307,7 +308,7 @@ public class Twins {
 
     private void writeText(int x, int y, String s) {
         for (int i = 0; i < s.length(); i++) {
-            cn.getTextWindow().output(x + i, y, s.charAt(i));
+            cn.getTextWindow().setCursorPosition(x + i, y); cn.getTextWindow().output(s.charAt(i));
         }
     }
 
@@ -335,6 +336,8 @@ public class Twins {
             int y = 1 + rand.nextInt(Coard.ROWS - 2);
             if (coard.isWall(x, y)) continue;
             if (isOccupied(x, y)) continue;
+            // grid'de zaten bir şey varsa o kareyi atla
+            if (coard.grid[y][x] != ' ') continue;
             return new int[]{x, y};
         }
     }
@@ -369,7 +372,7 @@ public class Twins {
     private void handleGameOver() {
         for (int r = 0; r < 23; r++) {
             for (int c = 0; c < 80; c++) {
-                cn.getTextWindow().output(c, r, ' ');
+                cn.getTextWindow().setCursorPosition(c, r); cn.getTextWindow().output(' ');
             }
         }
         String title  = "==========================";
