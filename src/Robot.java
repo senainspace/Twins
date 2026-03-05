@@ -13,20 +13,19 @@ public class Robot {
     private boolean hasDir = false;
 
     // C ve X robotlar 1000 can ile başlar.
-    public Robot(int x, int y, char type) {
+    public Robot(int x, int y, char type) { //x ve y robotun init konumu, type C ya da X
         this.x = x;
         this.y = y;
         this.type = type;
         this.hp = 1000;
 
-        // X robotu için başlangıç yönünü belirle
+        // X robotu için başlangıçta rastgele bir yön seç
         if (type == 'X') {
             pickNewDirection();
         }
     }
 
-    // Twins oyun döngüsünden çağrılan tek hareket metodu: robot tipine göre hareket eder
-    // player konumları da parametre olarak alınıyor böylece robotlar player karesine giremez
+    // player konumları da parametre olarak alındığı için robotlar player karesine giremiuo
     public void step(Coard coard, Robot[] robots, int robotCount, int pax, int pay, int pbx, int pby) {
         if (!isAlive()) return;
 
@@ -67,10 +66,9 @@ public class Robot {
         }
     }
 
-    // X robotu 4 yönde rastgele hareket eder,
-    // her adımda %25 ihtimalle yön değiştirir.
+    // X robotu 4 yönde rastgele hareket eder
+    // her adımda %25 ihtimalle yön değiştirir
     private void moveXWith25PercentTurn(Coard coard, Robot[] robots, int robotCount, int pax, int pay, int pbx, int pby) {
-        // Henüz yön belirlenmemişse yeni bir yön seç
         if (!hasDir) pickNewDirection();
 
         // %25 ihtimalle yön değiştirir
@@ -78,7 +76,7 @@ public class Robot {
             pickNewDirection();
         }
 
-        // Mevcut yönde ilerlemeyi dene duvara çarparsa veya kare doluysa yeni yön seç
+        // mevcut yönde ilerlemeyi dene duvara çarparsa veya kare doluysa yeni yön seç
         for (int attempt = 0; attempt < 4; attempt++) {
             int nx = x + dirX;
             int ny = y + dirY;
@@ -89,7 +87,7 @@ public class Robot {
                 return;
             }
 
-            // Duvara çarptıysa veya kare doluysa yön değiştir ve tekrar dene
+            // duvara çarparsa ya da kare doluysa yön değiştirir ve tekrar dener
             pickNewDirection();
         }
     }

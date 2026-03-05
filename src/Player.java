@@ -16,7 +16,7 @@ public class Player {
         mode = 1;
     }
 
-    // robot dizisi de alınıyor çünkü player robotun üstüne geçemez
+    // parameter olarak robot arrayi de alınıyor çünkü player robotun üstüne geçemez
     public void move(int dx, int dy, Coard coard, Robot[] robots, int robotCount) {
         // A hareketi: duvar ve robot çakışması kontrolü
         int nax = ax + dx, nay = ay + dy;
