@@ -250,13 +250,6 @@ public class Twins {
         }
     }
 
-    private void placeTreasureRandom(char symbol) {
-        int[] p = randomFreeCell();
-        Treasure t = new Treasure(p[0], p[1], symbol);
-        addTreasure(t);
-        coard.grid[p[1]][p[0]] = symbol;
-    }
-
     // --- ÇİZİM YARDIMCI METODLARı ---
 
     private void drawPlayer() {
