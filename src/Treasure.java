@@ -1,7 +1,7 @@
 public class Treasure {
     // Maze'deki collect edilebilir objeleri (1, 2, 3, @) temsil eder. Player ve computer için puan değerleri farklıdır.
     public int x, y;
-    public char symbol;          // '1', '2', '3'
+    public char symbol;          // 1,2,3
     public int playerPoints;     // player için
     public int computerPoints;   // computer için (3x)
 
