@@ -45,8 +45,7 @@ public class Twins {
     private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
-        cn = Enigma.getConsole("Twins", 120, 40, 24, 24);
-        coard = new Coard(mode);
+        cn = Enigma.getConsole("Twins", 110, 35, 20, 20);        coard = new Coard(mode);
         startTimeMs = System.currentTimeMillis();
 
         // Player A/B başlangıç konumu
