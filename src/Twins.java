@@ -6,6 +6,8 @@ import enigma.event.TextMouseListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.Random;
+import java.awt.Font;
+
 
 // Oyunun ana döngüsünü yöneten class. Input, zamanlama, çizim ve tüm objelerin koordinasyonu burada yapılır.
 // Değiştirildi: gettextwindow kullanırken koordinatı direkt output'a vermek yerine cursor pozisyonu ayarlayarak yazdık.
@@ -43,10 +45,8 @@ public class Twins {
     private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
-        cn = Enigma.getConsole("Twins"); //consoleu default boyut yaptık çünkü değiştirince büyüdüğünde maze bozuluyo
+        cn = Enigma.getConsole("Twins", 120, 40, 24, 24);
         coard = new Coard(mode);
-
-        // Başlangıç zamanı (Time : saniye gösterimi için)
         startTimeMs = System.currentTimeMillis();
 
         // Player A/B başlangıç konumu
