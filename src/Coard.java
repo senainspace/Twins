@@ -155,14 +155,6 @@ public class Coard {
         return '#';
     }
 
-    public char[][] getGrid() {
-        char[][] copy = new char[ROWS][COLS];
-        for (int r = 0; r < ROWS; r++) {
-            System.arraycopy(grid[r], 0, copy[r], 0, COLS);
-        }
-        return copy;
-    }
-
     public void loadMazeFromFile(String fileName) {
         try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
             String line;
