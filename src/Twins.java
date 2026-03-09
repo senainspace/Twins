@@ -69,19 +69,24 @@ public class Twins {
         if (element == 'C' || element == 'X') {
             // Yeni robot ekle
             int[] p = randomFreeCell();
-            addRobot(new Robot(p[0], p[1], element));
+            Robot robot = new Robot(p[0], p[1], element);
+            addRobot(robot);
             cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
+
         } else {
             // Treasure veya laser paketi grid'e yerleştir
             int[] p = randomFreeCell();
             if (element == '1' || element == '2' || element == '3') {
-                addTreasure(new Treasure(p[0], p[1], element));
+                Treasure treasure = new Treasure(p[0], p[1], element);
+                addTreasure(treasure);
                 coard.grid[p[1]][p[0]] = element;
-            } else {
+                drawTreasure(treasure);
+
+            } else { //drawlaser methodu oluşturulacak ama hala lazerleri çiziyo neden bilmiyoruz
                 // '@' – laser paketi: şimdilik sadece grid'e işaretle
                 coard.grid[p[1]][p[0]] = element;
             }
-            cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
+            //cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element); //drawtreasure yaptığımız için bunu yorum satırına aldık
         }
     }
 
@@ -120,7 +125,7 @@ public class Twins {
 
         // Treasure'ları çiz
         for (int i = 0; i < treasureCount; i++) {
-            cn.getTextWindow().setCursorPosition(treasures[i].x, treasures[i].y); cn.getTextWindow().output(treasures[i].symbol);
+            drawTreasure(treasures[i]);
         }
 
         // Robotları çiz
@@ -270,6 +275,12 @@ public class Twins {
         cn.getTextWindow().output(robot.type, attr);
     }
 
+    private void drawTreasure(Treasure treasure){
+        enigma.console.TextAttributes attr = new enigma.console.TextAttributes(java.awt.Color.BLUE, java.awt.Color.BLACK);
+        cn.getTextWindow().setCursorPosition(treasure.x, treasure.y);
+        cn.getTextWindow().output(treasure.symbol, attr);
+    }
+
     private void clearPlayer() {
         cn.getTextWindow().setCursorPosition(player.ax, player.ay); cn.getTextWindow().output(coard.grid[player.ay][player.ax]);
         cn.getTextWindow().setCursorPosition(player.bx, player.by); cn.getTextWindow().output(coard.grid[player.by][player.bx]);
@@ -408,4 +419,5 @@ public class Twins {
         }
         treasures[treasureCount++] = t;
     }
+
 }
