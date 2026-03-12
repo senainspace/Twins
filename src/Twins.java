@@ -31,6 +31,14 @@ public class Twins {
     int keypr, rkey;
     int robotTimer = 0;
     int inputTimer = 0; // Oyun input sistemi için sayaç (her 20 birimde yeni eleman)
+    boolean paused = false;
+    Laser[] lasers = new Laser[200];
+    int laserCount = 0;
+    int laserDirX = 0, laserDirY = 0;
+    int laserHeadX = -1, laserHeadY = -1;
+    int laserEndX = -1, laserEndY = -1;
+    boolean laserFire = false;
+
 
     // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
     private static final int HUD_X = 55;
@@ -45,7 +53,8 @@ public class Twins {
     private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
-        cn = Enigma.getConsole("Twins", 110, 35, 20, 20);        coard = new Coard(mode);
+        cn = Enigma.getConsole("Twins", 120, 40, 24, 24);
+        coard = new Coard(mode);
         startTimeMs = System.currentTimeMillis();
 
         // Player A/B başlangıç konumu
@@ -69,24 +78,19 @@ public class Twins {
         if (element == 'C' || element == 'X') {
             // Yeni robot ekle
             int[] p = randomFreeCell();
-            Robot robot = new Robot(p[0], p[1], element);
-            addRobot(robot);
+            addRobot(new Robot(p[0], p[1], element));
             cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
-
         } else {
             // Treasure veya laser paketi grid'e yerleştir
             int[] p = randomFreeCell();
             if (element == '1' || element == '2' || element == '3') {
-                Treasure treasure = new Treasure(p[0], p[1], element);
-                addTreasure(treasure);
+                addTreasure(new Treasure(p[0], p[1], element));
                 coard.grid[p[1]][p[0]] = element;
-                drawTreasure(treasure);
-
-            } else { //drawlaser methodu oluşturulacak ama hala lazerleri çiziyo neden bilmiyoruz
+            } else {
                 // '@' – laser paketi: şimdilik sadece grid'e işaretle
                 coard.grid[p[1]][p[0]] = element;
             }
-            //cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element); //drawtreasure yaptığımız için bunu yorum satırına aldık. BU SATIRI SİLME.
+            cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
         }
     }
 
@@ -110,6 +114,11 @@ public class Twins {
         cn.getTextWindow().addKeyListener(new KeyListener() {
             public void keyTyped(KeyEvent e) {}
             public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == (KeyEvent.VK_ENTER))
+                {
+                    paused = !paused;
+                    return;
+                }
                 if (keypr == 0) { keypr = 1; rkey = e.getKeyCode(); }
             }
             public void keyReleased(KeyEvent e) {}
@@ -125,7 +134,7 @@ public class Twins {
 
         // Treasure'ları çiz
         for (int i = 0; i < treasureCount; i++) {
-            drawTreasure(treasures[i]);
+            cn.getTextWindow().setCursorPosition(treasures[i].x, treasures[i].y); cn.getTextWindow().output(treasures[i].symbol);
         }
 
         // Robotları çiz
@@ -141,6 +150,11 @@ public class Twins {
         // Oyun döngüsü
         while (true) {
             // --- OYUNCU GİRİŞİ ---
+            if (paused)
+            {
+                sleepMs(50);
+                continue;
+            }
             if (keypr == 1) {
                 int dx = 0, dy = 0;
 
@@ -161,11 +175,21 @@ public class Twins {
                     player.mode *= -1;
                     drawPlayer();
                 }
+                else if (rkey == KeyEvent.VK_SPACE)
+                {
+                    if (player.laserCount > 0 && !laserFire)
+                    {
+                        startLaser();
+                        player.laserCount--;
+                        updateHUD();
+                    }
+                }
 
                 keypr = 0;
             }
 
             // --- ROBOT HAREKETİ (her 4 time unit'te bir) ---
+            updateLaser();
             robotTimer++;
             if (robotTimer >= 4) {
                 for (int i = 0; i < robotCount; i++) {
@@ -222,6 +246,15 @@ public class Twins {
     // byComputer=false -> Player puanı, true -> Bilgisayar puanı (3x)
     private void collectTreasureAt(int x, int y, boolean byComputer) {
         char cell = coard.getCoordinate(y, x);
+        if(cell == '@' && !byComputer)
+        {
+            player.laserCount++;
+            coard.grid[y][x] = ' ';
+            cn.getTextWindow().setCursorPosition(x,y);
+            cn.getTextWindow().output(' ');
+            updateHUD();
+            return;
+        }
         if (cell != '1' && cell != '2' && cell != '3') return;
 
         // Treasure arrayinde ilgili konumu ara
@@ -273,12 +306,6 @@ public class Twins {
         enigma.console.TextAttributes attr = new enigma.console.TextAttributes(java.awt.Color.RED, java.awt.Color.BLACK);
         cn.getTextWindow().setCursorPosition(robot.x, robot.y);
         cn.getTextWindow().output(robot.type, attr);
-    }
-
-    private void drawTreasure(Treasure treasure){
-        enigma.console.TextAttributes attr = new enigma.console.TextAttributes(java.awt.Color.BLUE, java.awt.Color.BLACK);
-        cn.getTextWindow().setCursorPosition(treasure.x, treasure.y);
-        cn.getTextWindow().output(treasure.symbol, attr);
     }
 
     private void clearPlayer() {
@@ -418,6 +445,98 @@ public class Twins {
             treasures = newArr;
         }
         treasures[treasureCount++] = t;
+    }
+    private void startLaser()
+    {
+        if (player.ax == player.bx && player.ay == player.by) return;
+        if (player.ax != player.bx && player.ay != player.by) return;
+
+        laserFire = true;
+        laserEndX = player.bx;
+        laserEndY = player.by;
+
+        if (player.ay == player.by) {
+            laserDirX = (player.bx > player.ax) ? 1 : -1;
+            laserDirY = 0;
+        } else
+        {
+            laserDirX = 0;
+            laserDirY = (player.by > player.ay) ? 1 : -1;
+        }
+
+        laserHeadX = player.ax + laserDirX;
+        laserHeadY = player.ay + laserDirY;
+    }
+
+    private void updateLaser()
+    {
+        // Laser ucunu ilerlet
+        if (laserFire)
+        {
+            if (laserHeadX == laserEndX && laserHeadY == laserEndY) {
+                laserFire = false;
+            }
+            else
+            {
+                if (!coard.isWall(laserHeadX, laserHeadY))
+                {
+                    addLaser(new Laser(laserHeadX, laserHeadY));
+                    cn.getTextWindow().setCursorPosition(laserHeadX, laserHeadY);
+                    cn.getTextWindow().output('+');
+                }
+                laserHeadX += laserDirX;
+                laserHeadY += laserDirY;
+            }
+        }
+
+        // Ömrü bitenleri sil
+        for (int i = laserCount - 1; i >= 0; i--) {
+            lasers[i].lifetime--;
+            if (lasers[i].lifetime <= 0)
+            {
+                cn.getTextWindow().setCursorPosition(lasers[i].x, lasers[i].y);
+                cn.getTextWindow().output(coard.grid[lasers[i].y][lasers[i].x]);
+                lasers[i] = lasers[laserCount - 1];
+                lasers[laserCount - 1] = null;
+                laserCount--;
+            }
+        }
+
+        // Komşu robotlara hasar ver
+        for (int i = 0; i < laserCount; i++)
+        {
+            int lx = lasers[i].x;
+            int ly = lasers[i].y;
+            for (int j = robotCount - 1; j >= 0; j--) {
+                int rx = robots[j].x;
+                int ry = robots[j].y;
+                if ((rx == lx && (ry == ly-1 || ry == ly+1)) ||
+                        (ry == ly && (rx == lx-1 || rx == lx+1))) {
+                    robots[j].hp -= 50;
+                    if (robots[j].hp <= 0)
+                    {
+                        cn.getTextWindow().setCursorPosition(robots[j].x, robots[j].y);
+                        cn.getTextWindow().output(coard.grid[robots[j].y][robots[j].x]);
+                        robots[j] = robots[robotCount - 1];
+                        robots[robotCount - 1] = null;
+                        robotCount--;
+                        player.score += 100;
+                        updateHUD();
+                    }
+                }
+            }
+        }
+    }
+
+    private void addLaser(Laser lb)
+    {
+        if (laserCount == lasers.length)
+        {
+            Laser[] newArr = new Laser[lasers.length * 2];
+            System.arraycopy(lasers, 0, newArr, 0, laserCount);
+            lasers = newArr;
+        }
+        lasers[laserCount++] = lb;
     }
 
 }
