@@ -138,6 +138,7 @@ public class Robot {
         dirY = d[1];
         hasDir = true;
     }
+    //d
 
     public boolean isAlive() { return hp > 0; }
 }
