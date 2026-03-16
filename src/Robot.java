@@ -26,16 +26,55 @@ public class Robot {
     }
 
     // player konumları da parametre olarak alındığı için robotlar player karesine giremiuo
-    public void step(Coard coard, Robot[] robots, int robotCount, int pax, int pay, int pbx, int pby) {
+    public void step(Coard coard, Robot[] robots, int robotCount, int pax, int pay, int pbx, int pby, Treasure[] treasures, int treasureCount) {
         if (!isAlive()) return;
 
         if (type == 'X') {
             moveXWith25PercentTurn(coard, robots, robotCount, pax, pay, pbx, pby);
         } else {
-            // C robotunun akıllı hareketi henüz implemente edilmedi
-            // oyunun çalışmaya devam etmesi için şimdilik rastgele hareket kullanılıyruz
-            moveRandom(coard, robots, robotCount, pax, pay, pbx, pby);
+            movementC(coard, robots, robotCount, pax, pay, pbx, pby, treasures, treasureCount);
         }
+    }
+
+    private void movementC (Coard coard, Robot[] robots, int robotCount, int pax, int pay, int pbx, int pby, Treasure[] treasures, int treasureCount){
+
+        if (treasureCount == 0) {
+            moveRandom(coard, robots, robotCount, pax, pay, pbx, pby);
+            return;
+        }
+
+        // en yakın treasure'ı buluyoruz
+        int targetX = -1, targetY = -1;
+        int minDistance = 500000;
+        for (int i = 0; i < treasureCount; i++) {
+            int dist = Math.abs(this.x - treasures[i].x) + Math.abs(this.y - treasures[i].y);
+            if (dist < minDistance) {
+                minDistance = dist;
+                targetX = treasures[i].x;
+                targetY = treasures[i].y;
+            }
+        }
+        // en kısa yol
+        int[][] directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+        int bestX = x, bestY = y;
+        int bestDist = minDistance;
+
+        for (int[] d : directions) {
+            int nx = x + d[0];
+            int ny = y + d[1];
+
+            if (!coard.isWall(nx, ny) && !isOccupied(nx, ny, robots, robotCount, pax, pay, pbx, pby)) {
+                int dToTarget = Math.abs(nx - targetX) + Math.abs(ny - targetY);
+                if (dToTarget < bestDist) {
+                    bestDist = dToTarget;
+                    bestX = nx;
+                    bestY = ny;
+                }
+            }
+        }
+        this.x = bestX;
+        this.y = bestY;
+        // eger bestdist degismezse blocklanmistir.
     }
 
     // Hedef kare başka bir robota veya player'a ait mi diye kontrol eder

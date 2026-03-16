@@ -34,11 +34,10 @@ public class Twins {
     boolean paused = false;
     Laser[] lasers = new Laser[200];
     int laserCount = 0;
-    int laserDirX = 0, laserDirY = 0;
     int laserHeadX = -1, laserHeadY = -1;
     int laserEndX = -1, laserEndY = -1;
     boolean laserFire = false;
-
+    private boolean alternateAxis = true;
 
     // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
     private static final int HUD_X = 55;
@@ -53,7 +52,7 @@ public class Twins {
     private static final int    WEIGHT_TOTAL   = 11;
 
     public Twins(int mode) {
-        cn = Enigma.getConsole("Twins", 120, 40, 24, 24);
+        cn = Enigma.getConsole("Twins", 80,24,24);
         coard = new Coard(mode);
         startTimeMs = System.currentTimeMillis();
 
@@ -169,6 +168,7 @@ public class Twins {
                     player.move(dx, dy, coard, robots, robotCount);
                     // Treasure toplama
                     handlePlayerTreasureCollection();
+                    drawTreasures();
                     drawPlayer();
                     updateHUD();
                 } else if (rkey == KeyEvent.VK_M) {
@@ -180,7 +180,6 @@ public class Twins {
                     if (player.laserCount > 0 && !laserFire)
                     {
                         startLaser();
-                        player.laserCount--;
                         updateHUD();
                     }
                 }
@@ -203,7 +202,7 @@ public class Twins {
                     }
 
                     // tüm robotlar ve player konumları verilir aynı kareye iki nesne giremez
-                    robot.step(coard, robots, robotCount, player.ax, player.ay, player.bx, player.by);
+                    robot.step(coard, robots, robotCount, player.ax, player.ay, player.bx, player.by, treasures, treasureCount);
 
                     // Robot treasure'a bastıysa puan ekle ve treasure'ı kaldır
                     handleRobotTreasureCollection(robot);
@@ -306,6 +305,18 @@ public class Twins {
         enigma.console.TextAttributes attr = new enigma.console.TextAttributes(java.awt.Color.RED, java.awt.Color.BLACK);
         cn.getTextWindow().setCursorPosition(robot.x, robot.y);
         cn.getTextWindow().output(robot.type, attr);
+    }
+    private void drawTreasures() {
+        enigma.console.TextAttributes orangeAttr = new enigma.console.TextAttributes(java.awt.Color.ORANGE, java.awt.Color.BLACK);
+        for (int r = 0; r < Coard.ROWS; r++) {
+            for (int c = 0; c < Coard.COLS; c++) {
+                char cell = coard.grid[r][c];
+                if (cell == '1' || cell == '2' || cell == '3') {
+                    cn.getTextWindow().setCursorPosition(c, r);
+                    cn.getTextWindow().output(cell, orangeAttr);
+                }
+            }
+        }
     }
 
     private void clearPlayer() {
@@ -446,81 +457,100 @@ public class Twins {
         }
         treasures[treasureCount++] = t;
     }
-    private void startLaser()
-    {
-        if (player.ax == player.bx && player.ay == player.by) return;
-        if (player.ax != player.bx && player.ay != player.by) return;
+    private void startLaser() {
+        if (player.ax == player.bx && player.ay == player.by) {
+            return;
+        }
+
+        player.laserCount--;
 
         laserFire = true;
         laserEndX = player.bx;
         laserEndY = player.by;
-
-        if (player.ay == player.by) {
-            laserDirX = (player.bx > player.ax) ? 1 : -1;
-            laserDirY = 0;
-        } else
-        {
-            laserDirX = 0;
-            laserDirY = (player.by > player.ay) ? 1 : -1;
-        }
-
-        laserHeadX = player.ax + laserDirX;
-        laserHeadY = player.ay + laserDirY;
+        laserHeadX = player.ax;
+        laserHeadY = player.ay;
+        alternateAxis = true;
     }
 
-    private void updateLaser()
-    {
-        // Laser ucunu ilerlet
-        if (laserFire)
-        {
+    private void updateLaser() {
+        // 1. Spreading Logic
+        if (laserFire) {
             if (laserHeadX == laserEndX && laserHeadY == laserEndY) {
                 laserFire = false;
-            }
-            else
-            {
-                if (!coard.isWall(laserHeadX, laserHeadY))
-                {
-                    addLaser(new Laser(laserHeadX, laserHeadY));
-                    cn.getTextWindow().setCursorPosition(laserHeadX, laserHeadY);
-                    cn.getTextWindow().output('+');
+            } else {
+                int nextX = laserHeadX;
+                int nextY = laserHeadY;
+
+                // Staircase movement logic
+                if (alternateAxis) {
+                    if (laserHeadX != laserEndX) nextX += (laserEndX > laserHeadX) ? 1 : -1;
+                    else if (laserHeadY != laserEndY) nextY += (laserEndY > laserHeadY) ? 1 : -1;
+                } else {
+                    if (laserHeadY != laserEndY) nextY += (laserEndY > laserHeadY) ? 1 : -1;
+                    else if (laserHeadX != laserEndX) nextX += (laserEndX > laserHeadX) ? 1 : -1;
                 }
-                laserHeadX += laserDirX;
-                laserHeadY += laserDirY;
+                alternateAxis = !alternateAxis;
+
+                // Add the laser logic object (even if inside a wall)
+                addLaser(new Laser(nextX, nextY));
+
+                // ONLY draw the laser symbol if the square is empty
+                // This prevents the '+' from covering walls ('#') or Player B
+                if (coard.grid[nextY][nextX] == ' ' && !(nextX == player.bx && nextY == player.by)) {
+                    cn.getTextWindow().setCursorPosition(nextX, nextY);
+                    enigma.console.TextAttributes laserAttr = new enigma.console.TextAttributes(java.awt.Color.CYAN, java.awt.Color.BLACK);
+                    cn.getTextWindow().output('+', laserAttr);
+                }
+
+                laserHeadX = nextX;
+                laserHeadY = nextY;
             }
         }
 
-        // Ömrü bitenleri sil
+        // 2. Erasing Logic: Only erase if we actually drew a '+'
         for (int i = laserCount - 1; i >= 0; i--) {
             lasers[i].lifetime--;
-            if (lasers[i].lifetime <= 0)
-            {
-                cn.getTextWindow().setCursorPosition(lasers[i].x, lasers[i].y);
-                cn.getTextWindow().output(coard.grid[lasers[i].y][lasers[i].x]);
+            if (lasers[i].lifetime <= 0) {
+                int lx = lasers[i].x;
+                int ly = lasers[i].y;
+
+                // If the original grid square was empty, restore it to empty
+                // If it was a wall, we never drew over it, so we don't need to touch it
+                if (coard.grid[ly][lx] == ' ' && !(lx == player.bx && ly == player.by)) {
+                    cn.getTextWindow().setCursorPosition(lx, ly);
+                    cn.getTextWindow().output(' ');
+                }
+
                 lasers[i] = lasers[laserCount - 1];
                 lasers[laserCount - 1] = null;
                 laserCount--;
             }
         }
 
-        // Komşu robotlara hasar ver
-        for (int i = 0; i < laserCount; i++)
-        {
-            int lx = lasers[i].x;
-            int ly = lasers[i].y;
+        // 3. Damage Logic remains active (lasers in walls still harm robots) [cite: 21, 51]
+        applyLaserDamage();
+    }
+
+    private void applyLaserDamage() {
+        for (int i = 0; i < laserCount; i++) {
             for (int j = robotCount - 1; j >= 0; j--) {
-                int rx = robots[j].x;
-                int ry = robots[j].y;
-                if ((rx == lx && (ry == ly-1 || ry == ly+1)) ||
-                        (ry == ly && (rx == lx-1 || rx == lx+1))) {
-                    robots[j].hp -= 50;
-                    if (robots[j].hp <= 0)
-                    {
-                        cn.getTextWindow().setCursorPosition(robots[j].x, robots[j].y);
-                        cn.getTextWindow().output(coard.grid[robots[j].y][robots[j].x]);
+                Robot robot = robots[j];
+                if (robot == null) continue;
+
+                // Neighbor harm in 4 directions [cite: 55, 58]
+                if (Math.abs(robot.x - lasers[i].x) + Math.abs(robot.y - lasers[i].y) == 1) {
+                    robot.hp -= 50; // Deals 50 harm per time unit [cite: 58]
+
+                    if (robot.hp <= 0) {
+                        // When a robot dies, restore the background from grid
+                        cn.getTextWindow().setCursorPosition(robot.x, robot.y);
+                        cn.getTextWindow().output(coard.grid[robot.y][robot.x]);
+
+                        player.score += 100; // Reward for destroying robot [cite: 59]
+
                         robots[j] = robots[robotCount - 1];
                         robots[robotCount - 1] = null;
                         robotCount--;
-                        player.score += 100;
                         updateHUD();
                     }
                 }
