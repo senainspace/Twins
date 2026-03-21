@@ -37,7 +37,10 @@ public class Twins {
     int laserHeadX = -1, laserHeadY = -1;
     int laserEndX = -1, laserEndY = -1;
     boolean laserFire = false;
-    private boolean alternateAxis = true;
+    private int[] laserPathX;
+    private int[] laserPathY;
+    private int laserPathLength;
+    private int laserPathIndex;
 
     // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
     private static final int HUD_X = 55;
@@ -469,33 +472,51 @@ public class Twins {
         laserEndY = player.by;
         laserHeadX = player.ax;
         laserHeadY = player.ay;
-        alternateAxis = true;
+        computeLaserPath();
+    }
+
+    private void computeLaserPath() {
+        int dx = Math.abs(laserEndX - laserHeadX);
+        int dy = Math.abs(laserEndY - laserHeadY);
+        int totalSteps = dx + dy;
+        laserPathX = new int[totalSteps];
+        laserPathY = new int[totalSteps];
+        laserPathLength = totalSteps;
+        laserPathIndex  = 0;
+
+        int cx  = laserHeadX;
+        int cy  = laserHeadY;
+        int sx  = Integer.signum(laserEndX - laserHeadX);
+        int sy  = Integer.signum(laserEndY - laserHeadY);
+        int err = dx - dy;
+
+        for (int i = 0; i < totalSteps; i++) {
+            if (err >= 0 && cx != laserEndX) {
+                cx += sx;
+                err -= dy;
+            } else if (cy != laserEndY) {
+                cy += sy;
+                err += dx;
+            } else {
+                cx += sx;
+                err -= dy;
+            }
+            laserPathX[i] = cx;
+            laserPathY[i] = cy;
+        }
     }
 
     private void updateLaser() {
-        // 1. Spreading Logic
         if (laserFire) {
             if (laserHeadX == laserEndX && laserHeadY == laserEndY) {
                 laserFire = false;
             } else {
-                int nextX = laserHeadX;
-                int nextY = laserHeadY;
+                int nextX = laserPathX[laserPathIndex];
+                int nextY = laserPathY[laserPathIndex];
+                laserPathIndex++;
 
-                // Staircase movement logic
-                if (alternateAxis) {
-                    if (laserHeadX != laserEndX) nextX += (laserEndX > laserHeadX) ? 1 : -1;
-                    else if (laserHeadY != laserEndY) nextY += (laserEndY > laserHeadY) ? 1 : -1;
-                } else {
-                    if (laserHeadY != laserEndY) nextY += (laserEndY > laserHeadY) ? 1 : -1;
-                    else if (laserHeadX != laserEndX) nextX += (laserEndX > laserHeadX) ? 1 : -1;
-                }
-                alternateAxis = !alternateAxis;
-
-                // Add the laser logic object (even if inside a wall)
                 addLaser(new Laser(nextX, nextY));
 
-                // ONLY draw the laser symbol if the square is empty
-                // This prevents the '+' from covering walls ('#') or Player B
                 if (coard.grid[nextY][nextX] == ' ' && !(nextX == player.bx && nextY == player.by)) {
                     cn.getTextWindow().setCursorPosition(nextX, nextY);
                     enigma.console.TextAttributes laserAttr = new enigma.console.TextAttributes(java.awt.Color.CYAN, java.awt.Color.BLACK);
@@ -507,15 +528,13 @@ public class Twins {
             }
         }
 
-        // 2. Erasing Logic: Only erase if we actually drew a '+'
         for (int i = laserCount - 1; i >= 0; i--) {
             lasers[i].lifetime--;
             if (lasers[i].lifetime <= 0) {
                 int lx = lasers[i].x;
                 int ly = lasers[i].y;
 
-                // If the original grid square was empty, restore it to empty
-                // If it was a wall, we never drew over it, so we don't need to touch it
+
                 if (coard.grid[ly][lx] == ' ' && !(lx == player.bx && ly == player.by)) {
                     cn.getTextWindow().setCursorPosition(lx, ly);
                     cn.getTextWindow().output(' ');
@@ -527,7 +546,6 @@ public class Twins {
             }
         }
 
-        // 3. Damage Logic remains active (lasers in walls still harm robots) [cite: 21, 51]
         applyLaserDamage();
     }
 
@@ -537,16 +555,16 @@ public class Twins {
                 Robot robot = robots[j];
                 if (robot == null) continue;
 
-                // Neighbor harm in 4 directions [cite: 55, 58]
+
                 if (Math.abs(robot.x - lasers[i].x) + Math.abs(robot.y - lasers[i].y) == 1) {
-                    robot.hp -= 50; // Deals 50 harm per time unit [cite: 58]
+                    robot.hp -= 50;
 
                     if (robot.hp <= 0) {
-                        // When a robot dies, restore the background from grid
+
                         cn.getTextWindow().setCursorPosition(robot.x, robot.y);
                         cn.getTextWindow().output(coard.grid[robot.y][robot.x]);
 
-                        player.score += 100; // Reward for destroying robot [cite: 59]
+                        player.score += 100;
 
                         robots[j] = robots[robotCount - 1];
                         robots[robotCount - 1] = null;
