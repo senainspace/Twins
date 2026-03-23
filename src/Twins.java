@@ -98,7 +98,7 @@ public class Twins {
                 // '@' – laser paketi: şimdilik sadece grid'e işaretle
                 coard.grid[p[1]][p[0]] = element;
                 cn.getTextWindow().setCursorPosition(p[0], p[1]);
-                cn.getTextWindow().output(element);
+                cn.getTextWindow().output(element); //aaaaaaaaaaa
             }
         }
     } //aaa sdfd
