@@ -101,7 +101,7 @@ public class Twins {
                 cn.getTextWindow().output(element);
             }
         }
-    }
+    } //aaa sdfd
 
     // INPUT_WEIGHTS ağırlıklarına göre INPUT_ELEMENTS dizisinden rastgele eleman seçer.
     private char pickInputElement() {
