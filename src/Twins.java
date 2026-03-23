@@ -3,10 +3,10 @@ import enigma.core.Enigma;
 import enigma.event.TextMouseEvent;
 import enigma.event.TextMouseListener;
 
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.Random;
-import java.awt.Font;
 
 
 // Oyunun ana döngüsünü yöneten class. Input, zamanlama, çizim ve tüm objelerin koordinasyonu burada yapılır.
@@ -22,6 +22,9 @@ public class Twins {
 
     Treasure[] treasures    = new Treasure[100];
     int        treasureCount = 0;
+
+    Laser[] laser_packs= new Laser[500];
+    int laser_packs_Count= 0;
 
     // Bilgisayarın (robotların) toplam skoru
     int computerScore = 0;
@@ -88,11 +91,15 @@ public class Twins {
             if (element == '1' || element == '2' || element == '3') {
                 addTreasure(new Treasure(p[0], p[1], element));
                 coard.grid[p[1]][p[0]] = element;
+                enigma.console.TextAttributes attr = new enigma.console.TextAttributes(Color.ORANGE, java.awt.Color.BLACK);
+                cn.getTextWindow().setCursorPosition(p[0], p[1]);
+                cn.getTextWindow().output(element, attr);
             } else {
                 // '@' – laser paketi: şimdilik sadece grid'e işaretle
                 coard.grid[p[1]][p[0]] = element;
+                cn.getTextWindow().setCursorPosition(p[0], p[1]);
+                cn.getTextWindow().output(element);
             }
-            cn.getTextWindow().setCursorPosition(p[0], p[1]); cn.getTextWindow().output(element);
         }
     }
 
@@ -136,7 +143,9 @@ public class Twins {
 
         // Treasure'ları çiz
         for (int i = 0; i < treasureCount; i++) {
-            cn.getTextWindow().setCursorPosition(treasures[i].x, treasures[i].y); cn.getTextWindow().output(treasures[i].symbol);
+            enigma.console.TextAttributes attr = new enigma.console.TextAttributes(Color.ORANGE, java.awt.Color.BLACK);
+            cn.getTextWindow().setCursorPosition(treasures[i].x, treasures[i].y);
+            cn.getTextWindow().output(treasures[i].symbol, attr);
         }
 
         // Robotları çiz
