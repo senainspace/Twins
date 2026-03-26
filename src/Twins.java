@@ -7,7 +7,7 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.Random;
-
+import java.util.Scanner;
 
 // Oyunun ana döngüsünü yöneten class. Input, zamanlama, çizim ve tüm objelerin koordinasyonu burada yapılır.
 // Değiştirildi: gettextwindow kullanırken koordinatı direkt output'a vermek yerine cursor pozisyonu ayarlayarak yazdık.
@@ -23,9 +23,6 @@ public class Twins {
     Treasure[] treasures    = new Treasure[100];
     int        treasureCount = 0;
 
-    Laser[] laser_packs= new Laser[500];
-    int laser_packs_Count= 0;
-
     // Bilgisayarın (robotların) toplam skoru
     int computerScore = 0;
 
@@ -35,6 +32,7 @@ public class Twins {
     int robotTimer = 0;
     int inputTimer = 0; // Oyun input sistemi için sayaç (her 20 birimde yeni eleman)
     boolean paused = false;
+    boolean welcomeDone = false;
     Laser[] lasers = new Laser[200];
     int laserCount = 0;
     int laserHeadX = -1, laserHeadY = -1;
@@ -42,7 +40,6 @@ public class Twins {
     boolean laserFire = false;
     private int[] laserPathX;
     private int[] laserPathY;
-    private int laserPathLength;
     private int laserPathIndex;
 
     // HUD sağ tarafta başlayacağı X konumu (maze 0..52 arası)
@@ -57,10 +54,26 @@ public class Twins {
     private static final int[]  INPUT_WEIGHTS  = { 2,   2,   2,   3,   1,   1 };
     private static final int    WEIGHT_TOTAL   = 11;
 
-    public Twins(int mode) {
-        cn = Enigma.getConsole("Twins", 80,24,24);
+    public Twins() {
+        // Başlangıç menüsü
+        Scanner sc = new Scanner(System.in);
+        System.out.println("#### TWINS GAME ####");
+        System.out.println("1. Load Maze from maze.txt");
+        System.out.println("2. Generate Random Maze");
+        System.out.print("Select an option: ");
+        int mode = sc.nextInt();
+        sc.nextLine(); // nextInt buffer'da bıraktığı newline'ı temizle
+
+        // 1 veya 2 dışında bir şey girilirse tekrar sor
+        while (mode != 1 && mode != 2) {
+            System.out.println("Invalid input! Please enter 1 or 2.");
+            System.out.print("Select an option: ");
+            mode = sc.nextInt();
+            sc.nextLine();
+        }
+
+        cn = Enigma.getConsole("Twins", 80, 24, 24);
         coard = new Coard(mode);
-        startTimeMs = System.currentTimeMillis();
 
         // Player A/B başlangıç konumu
         int[] InitialPos = randomFreeCell();
@@ -123,18 +136,30 @@ public class Twins {
         cn.getTextWindow().addKeyListener(new KeyListener() {
             public void keyTyped(KeyEvent e) {}
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == (KeyEvent.VK_ENTER))
-                {
-                    paused = !paused;
+                if (e.getKeyCode() == KeyEvent.VK_ENTER && !welcomeDone) {
+                    // Karşılama ekranı: ENTER'ı keypr'a yönlendir
+                    if (keypr == 0) { keypr = 1; rkey = e.getKeyCode(); }
                     return;
                 }
+                if (e.getKeyCode() == KeyEvent.VK_ENTER && !paused) {
+                    // Oyun içinde ENTER: pause aç
+                    paused = true;
+                    return;
+                }
+                // Paused menüde veya diğer tuşlar: keypr'a düşür (UP/DOWN/ENTER seçim için)
                 if (keypr == 0) { keypr = 1; rkey = e.getKeyCode(); }
             }
             public void keyReleased(KeyEvent e) {}
         });
     }
 
-    public void run() {
+    public void run() throws InterruptedException {
+        // Karşılama ekranı
+        showWelcomeScreen();
+
+        // Karşılama ekranı kapandıktan sonra süreyi başlat
+        startTimeMs = System.currentTimeMillis();
+
         // Maze'i çiz
         for (int r = 0; r < Coard.ROWS; r++)
             for (int c = 0; c < Coard.COLS; c++) {
@@ -158,14 +183,30 @@ public class Twins {
 
         updateHUD();
 
-        // Oyun döngüsü
+        // Oyun döngüsü — her tick 50ms, yani 1 saniye = 20 tick
+        // Robotlar her 4 tickte bir hareket eder (200ms)
+        // Yeni eleman her 20 tickte bir spawn olur (1 saniye)
+        boolean wasPaused = false;
         while (true) {
-            // --- OYUNCU GİRİŞİ ---
-            if (paused)
-            {
-                sleepMs(50);
+            if (paused) {
+                if (!wasPaused) {
+                    boolean devamEt = showPausedScreen();
+                    wasPaused = true;
+                    if (!devamEt) {
+                        System.exit(0);
+                    }
+                    // Devam et seçildiyse paused'u kapat
+                    paused = false;
+                }
+                Thread.sleep(50);
                 continue;
             }
+            if (wasPaused) {
+                clearPausedScreen();
+                wasPaused = false;
+            }
+
+            // --- OYUNCU GİRİŞİ ---
             if (keypr == 1) {
                 int dx = 0, dy = 0;
 
@@ -182,25 +223,22 @@ public class Twins {
                     handlePlayerTreasureCollection();
                     drawTreasures();
                     drawPlayer();
-                    updateHUD();
                 } else if (rkey == KeyEvent.VK_M) {
                     player.mode *= -1;
                     drawPlayer();
-                }
-                else if (rkey == KeyEvent.VK_SPACE)
-                {
-                    if (player.laserCount > 0 && !laserFire)
-                    {
+                } else if (rkey == KeyEvent.VK_SPACE) {
+                    if (player.laserCount > 0 && !laserFire) {
                         startLaser();
-                        updateHUD();
                     }
                 }
 
                 keypr = 0;
             }
 
-            // --- ROBOT HAREKETİ (her 4 time unit'te bir) ---
+            // --- LASER GÜNCELLEMESİ ---
             updateLaser();
+
+            // --- ROBOT HAREKETİ (her 4 tickte bir = 200ms) ---
             robotTimer++;
             if (robotTimer >= 4) {
                 for (int i = 0; i < robotCount; i++) {
@@ -226,18 +264,19 @@ public class Twins {
                 }
                 robotTimer = 0;
                 checkPlayerHarming();
-                updateHUD();
             }
 
-            // --- OYUN INPUT SİSTEMİ (her 20 time unit'te bir) ---
+            // --- OYUN INPUT SİSTEMİ (her 20 tickte bir = 1 saniye) ---
             inputTimer++;
             if (inputTimer >= 20) {
                 spawnInputElement();
                 inputTimer = 0;
-                updateHUD();
             }
 
-            sleepMs(50);
+            // HUD her tick sonunda bir kez güncellenir
+            updateHUD();
+
+            Thread.sleep(50);
         }
     }
 
@@ -257,13 +296,11 @@ public class Twins {
     // byComputer=false -> Player puanı, true -> Bilgisayar puanı (3x)
     private void collectTreasureAt(int x, int y, boolean byComputer) {
         char cell = coard.getCoordinate(y, x);
-        if(cell == '@' && !byComputer)
-        {
+        if (cell == '@' && !byComputer) {
             player.laserCount++;
             coard.grid[y][x] = ' ';
-            cn.getTextWindow().setCursorPosition(x,y);
+            cn.getTextWindow().setCursorPosition(x, y);
             cn.getTextWindow().output(' ');
-            updateHUD();
             return;
         }
         if (cell != '1' && cell != '2' && cell != '3') return;
@@ -318,6 +355,7 @@ public class Twins {
         cn.getTextWindow().setCursorPosition(robot.x, robot.y);
         cn.getTextWindow().output(robot.type, attr);
     }
+
     private void drawTreasures() {
         enigma.console.TextAttributes orangeAttr = new enigma.console.TextAttributes(java.awt.Color.ORANGE, java.awt.Color.BLACK);
         for (int r = 0; r < Coard.ROWS; r++) {
@@ -365,6 +403,109 @@ public class Twins {
         }
     }
 
+    private void writeColored(int x, int y, String s, java.awt.Color fg) {
+        enigma.console.TextAttributes attr = new enigma.console.TextAttributes(fg, java.awt.Color.BLACK);
+        for (int i = 0; i < s.length(); i++) {
+            cn.getTextWindow().setCursorPosition(x + i, y);
+            cn.getTextWindow().output(s.charAt(i), attr);
+        }
+    }
+
+    // Oyun başlamadan önce karşılama ekranını gösterir, Enter'a basınca devam eder
+    private void showWelcomeScreen() {
+        for (int r = 0; r < 24; r++)
+            for (int c = 0; c < 80; c++) {
+                cn.getTextWindow().setCursorPosition(c, r); cn.getTextWindow().output(' ');
+            }
+
+        // TWINS - 5x5 piksel grid, x=25 ile tam ortada
+        writeColored(25, 3, "ooooo o   o  ooo  o   o  oooo", java.awt.Color.CYAN);
+        writeColored(25, 4, "  o   o   o   o   oo  o o    ", java.awt.Color.CYAN);
+        writeColored(25, 5, "  o   o o o   o   o o o  ooo ", java.awt.Color.CYAN);
+        writeColored(25, 6, "  o   o o o   o   o  oo     o", java.awt.Color.CYAN);
+        writeColored(25, 7, "  o    o o   ooo  o   o oooo ", java.awt.Color.CYAN);
+
+        writeColored(26, 10, "~ Twin Heroes of the Maze ~", java.awt.Color.YELLOW);
+
+        writeColored(22, 12, "CONTROLS", java.awt.Color.GREEN);
+        writeText   (22, 13, "  Arrow Keys  : Move");
+        writeText   (22, 14, "  M           : Toggle twin mode (same / opposite)");
+        writeText   (22, 15, "  SPACE       : Fire laser");
+        writeText   (22, 16, "  ENTER       : Pause / Resume");
+
+        writeColored(25, 19, "Press ENTER to start...", java.awt.Color.WHITE);
+
+        keypr = 0;
+        while (true) {
+            if (keypr == 1 && rkey == KeyEvent.VK_ENTER) break;
+            try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+        keypr = 0;
+        welcomeDone = true;
+
+        // Karşılama ekranını temizle
+        for (int r = 0; r < 24; r++)
+            for (int c = 0; c < 80; c++) {
+                cn.getTextWindow().setCursorPosition(c, r); cn.getTextWindow().output(' ');
+            }
+    }
+
+    // Ekranın ortasına PAUSED menüsü yazar, seçim döngüsü burada
+    // Döner: true = devam et, false = çık
+    private boolean showPausedScreen() {
+        int selected = 0; // 0 = Devam Et, 1 = Cik
+
+        while (true) {
+            writeColored(28, 9,  "+---------------------+", java.awt.Color.YELLOW);
+            writeColored(28, 10, "|       PAUSED        |", java.awt.Color.YELLOW);
+            writeColored(28, 11, "+---------------------+", java.awt.Color.YELLOW);
+
+            if (selected == 0) {
+                writeColored(28, 12, "|  > Devam Et         |", java.awt.Color.GREEN);
+                writeColored(28, 13, "|    Cik              |", java.awt.Color.YELLOW);
+            } else {
+                writeColored(28, 12, "|    Devam Et         |", java.awt.Color.YELLOW);
+                writeColored(28, 13, "|  > Cik              |", java.awt.Color.RED);
+            }
+
+            writeColored(28, 14, "+---------------------+", java.awt.Color.YELLOW);
+
+            // tuş bekle
+            keypr = 0;
+            while (keypr == 0) {
+                try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            }
+
+            if (rkey == java.awt.event.KeyEvent.VK_UP || rkey == java.awt.event.KeyEvent.VK_DOWN) {
+                selected = (selected == 0) ? 1 : 0;
+            } else if (rkey == java.awt.event.KeyEvent.VK_ENTER) {
+                keypr = 0;
+                return selected == 0; // true = devam et
+            }
+            keypr = 0;
+        }
+    }
+
+    // Pause menüsü kapandıktan sonra tüm ekranı yeniden çizer
+    private void clearPausedScreen() {
+        // Maze'i komple yeniden çiz
+        for (int r = 0; r < Coard.ROWS; r++)
+            for (int c = 0; c < Coard.COLS; c++) {
+                cn.getTextWindow().setCursorPosition(c, r);
+                cn.getTextWindow().output(coard.grid[r][c]);
+            }
+        // Treasure'ları çiz
+        enigma.console.TextAttributes orangeAttr = new enigma.console.TextAttributes(java.awt.Color.ORANGE, java.awt.Color.BLACK);
+        for (int i = 0; i < treasureCount; i++) {
+            cn.getTextWindow().setCursorPosition(treasures[i].x, treasures[i].y);
+            cn.getTextWindow().output(treasures[i].symbol, orangeAttr);
+        }
+        // Robotları çiz
+        for (int i = 0; i < robotCount; i++) drawRobot(robots[i]);
+        // Player'ı çiz
+        drawPlayer();
+    }
+
     // --- KONUM YARDIMCI METODLARı ---
 
     private boolean isOccupied(int x, int y) {
@@ -395,11 +536,6 @@ public class Twins {
         }
     }
 
-    private void sleepMs(long ms) {
-        long end = System.nanoTime() + ms * 1_000_000L;
-        while (System.nanoTime() < end) { }
-    }
-
     private void checkPlayerHarming() {
         int[][] neighbors = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 
@@ -423,29 +559,45 @@ public class Twins {
     }
 
     private void handleGameOver() {
-        for (int r = 0; r < 23; r++) {
+        for (int r = 0; r < 24; r++)
             for (int c = 0; c < 80; c++) {
                 cn.getTextWindow().setCursorPosition(c, r); cn.getTextWindow().output(' ');
             }
+
+        int startX = 15, startY = 6;
+
+        writeColored(startX, startY,     "==========================", java.awt.Color.RED);
+        writeColored(startX, startY + 1, "        GAME  OVER        ", java.awt.Color.RED);
+        writeColored(startX, startY + 2, "==========================", java.awt.Color.RED);
+
+        writeColored(startX, startY + 4, "  Final Player Score : ", java.awt.Color.GREEN);
+        writeColored(startX + 23, startY + 4, String.valueOf(player.score), java.awt.Color.WHITE);
+
+        writeColored(startX, startY + 5, "  Final Comp.  Score : ", java.awt.Color.CYAN);
+        writeColored(startX + 23, startY + 5, String.valueOf(computerScore), java.awt.Color.WHITE);
+
+        // Kazananı göster
+        String winner;
+        java.awt.Color winColor;
+        if (player.score > computerScore) {
+            winner = "  >> Player wins! <<";
+            winColor = java.awt.Color.GREEN;
+        } else if (computerScore > player.score) {
+            winner = "  >> Computer wins! <<";
+            winColor = java.awt.Color.RED;
+        } else {
+            winner = "  >> It's a tie! <<";
+            winColor = java.awt.Color.YELLOW;
         }
-        String title  = "==========================";
-        String msg    = "        GAME OVER         ";
-        String score  = "  Final Player Score:   " + player.score;
-        String cScore = "  Final Comp. Score:   " + computerScore;
-        String exit   = "Press any key to exit...";
+        writeColored(startX, startY + 7, winner, winColor);
 
-        int startY = 8;
-        int startX = 15;
-        writeText(startX, startY,     title);
-        writeText(startX, startY + 1, msg);
-        writeText(startX, startY + 2, title);
-        writeText(startX, startY + 4, score);
-        writeText(startX, startY + 5, cScore);
-        writeText(startX, startY + 8, exit);
+        writeColored(startX, startY + 10, "Press any key to exit...", java.awt.Color.GRAY);
 
+        // Önceki tuş basımının temizlenmesi için bekle, sonra yeni input bekle
+        try { Thread.sleep(300); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         keypr = 0;
         while (keypr == 0) {
-            sleepMs(100);
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
         System.exit(0);
     }
@@ -469,6 +621,7 @@ public class Twins {
         }
         treasures[treasureCount++] = t;
     }
+
     private void startLaser() {
         if (player.ax == player.bx && player.ay == player.by) {
             return;
@@ -490,7 +643,6 @@ public class Twins {
         int totalSteps = dx + dy;
         laserPathX = new int[totalSteps];
         laserPathY = new int[totalSteps];
-        laserPathLength = totalSteps;
         laserPathIndex  = 0;
 
         int cx  = laserHeadX;
@@ -543,7 +695,6 @@ public class Twins {
                 int lx = lasers[i].x;
                 int ly = lasers[i].y;
 
-
                 if (coard.grid[ly][lx] == ' ' && !(lx == player.bx && ly == player.by)) {
                     cn.getTextWindow().setCursorPosition(lx, ly);
                     cn.getTextWindow().output(' ');
@@ -564,12 +715,10 @@ public class Twins {
                 Robot robot = robots[j];
                 if (robot == null) continue;
 
-
                 if (Math.abs(robot.x - lasers[i].x) + Math.abs(robot.y - lasers[i].y) == 1) {
                     robot.hp -= 50;
 
                     if (robot.hp <= 0) {
-
                         cn.getTextWindow().setCursorPosition(robot.x, robot.y);
                         cn.getTextWindow().output(coard.grid[robot.y][robot.x]);
 
@@ -578,22 +727,18 @@ public class Twins {
                         robots[j] = robots[robotCount - 1];
                         robots[robotCount - 1] = null;
                         robotCount--;
-                        updateHUD();
                     }
                 }
             }
         }
     }
 
-    private void addLaser(Laser lb)
-    {
-        if (laserCount == lasers.length)
-        {
+    private void addLaser(Laser lb) {
+        if (laserCount == lasers.length) {
             Laser[] newArr = new Laser[lasers.length * 2];
             System.arraycopy(lasers, 0, newArr, 0, laserCount);
             lasers = newArr;
         }
         lasers[laserCount++] = lb;
     }
-
 }
