@@ -438,6 +438,7 @@ public class Twins {
         keypr = 0;
         while (true) {
             if (keypr == 1 && rkey == KeyEvent.VK_ENTER) break;
+            else { keypr = 0;}
             try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
         keypr = 0;
